@@ -36,7 +36,43 @@
 <body>
   <div id="editor" aria-label="Monaco editor container"></div>
   <div class="side">
-    <div class="section" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;justify-content:space-between">
+    
+    <div class="section">
+      <strong>UDP Packet Visualization</strong>
+      <details>
+        <summary class="muted" style="cursor:pointer">what are these fields?</summary>
+        <small>
+          <span class="mac"><strong>MAC Header:</strong></span><br>
+          &nbsp;&nbsp;Destination MAC: 00:00:00:00:00:00<br>
+          &nbsp;&nbsp;Source MAC: 00:00:00:00:00:00<br>
+          &nbsp;&nbsp;EtherType: 0x0800 (IPv4)<br>
+          <span class="ip"><strong>IP Header:</strong></span><br>
+          &nbsp;&nbsp;Version: 4<br>
+          &nbsp;&nbsp;Header Length: 20 bytes<br>
+          &nbsp;&nbsp;Total Length: 54 bytes<br>
+          &nbsp;&nbsp;Time to Live (TTL): 64<br>
+          &nbsp;&nbsp;Protocol: 17 (UDP)<br>
+          &nbsp;&nbsp;Source IP: 127.0.0.1<br>
+          &nbsp;&nbsp;Destination IP: 127.0.0.1<br>
+          <span class="l4"><strong>UDP Header:</strong></span><br>
+          &nbsp;&nbsp;Source Port: 49168<br>
+          &nbsp;&nbsp;Destination Port: 53<br>
+          &nbsp;&nbsp;Length: 34 bytes (UDP header + data)<br>
+          &nbsp;&nbsp;Checksum: 0x0000<br>
+          <span class="payload"><strong>Payload:</strong></span><br>
+          &nbsp;&nbsp;Data: "hello world" (hex: 68656c6c6f20776f726c64)
+        </small>
+      </details>
+      <div class="legend">
+        <span class="box mac"></span> MAC
+        <span class="box ip"></span> IP
+        <span class="box l4"></span> L4
+        <span class="box payload"></span> Payload
+      </div>
+      
+      <div id="packetBytes" style="margin-top: 16px; font-family: monospace; font-size: 12px; display: flex; flex-wrap: wrap; gap: 2px;"></div>
+    </div>
+        <div class="section" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;justify-content:space-between">
       <div><button id="prev" class="btn">⟵ Prev</button> <button id="next" class="btn">Next ⟶</button></div>
       <span id="srcBadge" class="muted">src: —</span>
     </div>
@@ -75,15 +111,11 @@
           Segment lengths (MAC/IP/L4/payload) are either captured or derived from headers for teaching.
         </small>
       </details>
-      <div class="legend">
-        <span class="box mac"></span> MAC
-        <span class="box ip"></span> IP
-        <span class="box l4"></span> L4
-        <span class="box payload"></span> Payload
-      </div>
-      <svg viewBox="0 0 360 68" id="memsvg" aria-label="skb linear buffer"></svg>
       <div class="kv mono" id="kv"></div>
+              <svg viewBox="0 0 360 68" id="memsvg" aria-label="skb linear buffer"></svg>
+            </div>
     </div>
+
   </div>
 
 <script>
@@ -118,16 +150,18 @@
   function resolveFunctionInText(name, text) {
     try {
       console.log("Resolving function:", name);
-      const defRe = new RegExp(name, 'm');
-      const m = defRe.exec(text);
+      const defRe = new RegExp(`\\b${name}\\b\\s*\\([^)]*\\)\\s*{?`, 'm');
+      let m = defRe.exec(text);
       if (m) {
         console.log("Found definition for", name);
         const idx = m.index;
         const line = 1 + (text.slice(0, idx).match(/\n/g)||[]).length;
         return { line, kind:'definition' };
       }
-      const callRe = new RegExp(name, 'g');
-      const c = callRe.exec(text);
+
+      // Fallback to a broader search for calls if definition not found
+      const callRe = new RegExp(`\\b${name}\\b`, 'g');
+      let c = callRe.exec(text);
       if (c) {
         console.log("Found call for", name);
         const idx = c.index;
@@ -172,7 +206,7 @@
   // Ethernet (14 bytes) + IP (20 bytes) + UDP (8 bytes) + Payload (12 bytes "hello world") = 54 bytes
   const samplePacketHex = "0000000000000000000000000800" + // Ethernet Header (simplified)
                           "450000360001000040117c637f0000017f000001" + // IP Header (simplified, src/dst 127.0.0.1)
-                          "c010003500220000" + // UDP Header (src port 49168, dst port 53, len 34, checksum 0)
+                          "c010003500220000000000000000000000000000" + // UDP Header (src port 49168, dst port 53, len 34, checksum 0) - EXTENDED TO 20 BYTES
                           "68656c6c6f20776f726c64"; // Payload "hello world"
 
   // Function to convert hex to ASCII (for payload display)
@@ -241,6 +275,7 @@
 
     // Update SKB visualization
     drawBar(step.skb);
+    drawPacketBytes(samplePacketHex, step.skb); // Call the new function here
     kv.innerHTML = '';
     for (const [key, value] of Object.entries(step.skb)) {
         if (typeof value !== 'object') {
@@ -287,8 +322,19 @@
     const out=[];
     for (let i = 0; i < steps.length; i++) {
       const s = steps[i];
-      // Hardcode line and kind for all steps to ensure display
-      out.push({ ...s, line: 100 + i, kind: 'definition' }); // Placeholder line number
+      let resolved = { line: 0, kind: 'unknown' }; // Default to unknown
+      try {
+        const fileContent = await fetchFile(s.file);
+        const funcInfo = resolveFunctionInText(s.func, fileContent.text);
+        if (funcInfo) {
+          resolved = funcInfo;
+        } else {
+          console.warn(`Could not resolve function ${s.func} in ${s.file}`);
+        }
+      } catch (e) {
+        console.error(`Error resolving file or function for ${s.file}:${s.func}`, e);
+      }
+      out.push({ ...s, line: resolved.line, kind: resolved.kind });
     }
     return out;
   }
@@ -353,6 +399,41 @@
     marker(w_head,'data');
     marker(scale(total - s.tailroom),'tail');
     marker(320,'end');
+  }
+
+  // New function to draw packet bytes
+  function drawPacketBytes(packetHex, skb) {
+    const packetBytesDiv = document.getElementById('packetBytes');
+    packetBytesDiv.innerHTML = ''; // Clear previous content
+
+    const macLenBytes = (skb.mac_len || 0);
+    const ipLenBytes = (skb.ip_len || 0);
+    const l4LenBytes = (skb.l4_len || 0);
+    const payloadLenBytes = Math.max(0, (skb.payload_len ?? (skb.len - macLenBytes - ipLenBytes - l4LenBytes)));
+
+    let currentOffset = 0;
+
+    for (let i = 0; i < packetHex.length; i += 2) {
+      const byteHex = packetHex.substring(i, i + 2);
+      const byteSpan = document.createElement('span');
+      byteSpan.textContent = byteHex;
+      byteSpan.style.padding = '2px';
+      byteSpan.style.borderRadius = '2px';
+
+      let className = '';
+      if (currentOffset < macLenBytes) {
+        className = 'mac';
+      } else if (currentOffset < macLenBytes + ipLenBytes) {
+        className = 'ip';
+      } else if (currentOffset < macLenBytes + ipLenBytes + l4LenBytes) {
+        className = 'l4';
+      } else if (currentOffset < macLenBytes + ipLenBytes + l4LenBytes + payloadLenBytes) {
+        className = 'payload';
+      }
+      byteSpan.classList.add(className);
+      packetBytesDiv.appendChild(byteSpan);
+      currentOffset++;
+    }
   }
 })();
 </script>
