@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Kernel Net Stack Stepper — Multi-file + Packet/SKB State</title>
+<style>
+  html,body{height:100%;margin:0} body{display:flex;min-height:100%}
+  #editor{flex:1;min-width:0}
+  .side{width:440px;border-left:1px solid #e5e7eb;background:#fcfcfd;display:flex;flex-direction:column}
+      .section{padding:12px;border:1px solid #8ab4f8; margin-bottom: 8px;} /* Brighter blue border */ /* Brighter blue border */ /* Brighter blue border */
+  .btn{cursor:pointer;padding:6px 12px;border:1px solid #cbd5e1;border-radius:88px;background:#f8fafc}
+  .muted{color:#6b7280} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .progress{height:6px;background:#eee;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:#8ab4f8;width:0%;transition:width .2s}
+  .hl{background:rgba(255,225,130,.5)}
+  .pill{display:inline-block;padding:2px 6px;border-radius:999px;background:#eef;border:1px solid #99c;font-size:12px}
+  .legend{display:flex;gap:8px;align-items:center;font-size:12px;margin:6px 0 4px}
+  .box{width:12px;height:12px;border-radius:2px;display:inline-block}
+  .mac{background:#e2e8f0}.ip{background:#fde68a}.l4{background:#86efac}.payload{background:#c7d2fe}
+  svg{width:100%;height:68px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:13px}
+  .chg{background:#fff7ed;border:1px solid #fed7aa;border:6px;padding:0 6px}
+  details small{display:block;margin-top:6px;color:#64748b}
+  #stack div{padding:3px 0;border-bottom:1px solid #f1f5f9} #stack div:last-child{border:0}
+  .active-layer {
+    stroke: #007bff; /* Blue border */
+    stroke-width: 2px;
+    filter: brightness(1.2); /* Slightly brighter */
+  }
+</style>
+<!-- Monaco via CDN -->
+<script>var require={paths:{'vs':'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs'}};</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.nls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.js"></script>
+</head>
+<body>
+  <div id="editor" aria-label="Monaco editor container"></div>
+  <div class="side">
+    <div class="section" style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;justify-content:space-between">
+      <div><button id="prev" class="btn">⟵ Prev</button> <button id="next" class="btn">Next ⟶</button></div>
+      <span id="srcBadge" class="muted">src: —</span>
+    </div>
+
+    <div class="section">
+      <div id="meta" class="muted mono">loading…</div>
+      <div style="height:10px"></div><div class="progress"><div id="bar"></div></div>
+    </div>
+
+    <div class="section">
+      <strong>Call Stack</strong>
+      <div id="stack" class="mono" style="font-size:13px;margin-top:8px"></div>
+    </div>
+
+    <div class="section">
+      <div class="muted">File: <span id="filepill" class="filepill">—</span></div>
+      <div style="margin-top:6px"><a id="openSrc" class="muted" target="_blank" rel="noreferrer">open source</a></div>
+      <div id="error" class="muted" style="color:#b91c1c;margin-top:8px"></div>
+    </div>
+
+    <div class="section">
+      <strong>Packet / <span class="mono">sk_buff</span> State</strong>
+      <details>
+        <summary class="muted" style="cursor:pointer">what are these fields?</summary>
+        <small>
+          Directly from <span class="mono">struct sk_buff</span> (Linux 6.12): 
+          <span class="mono">len</span>, <span class="mono">data_len</span>, <span class="mono">protocol</span>, <span class="mono">mark</span>, <span class="mono">priority</span> (shown as <span class="mono">prio</span>), 
+          <span class="mono">truesize</span>, <span class="mono">ip_summed</span> (rendered as <span class="mono">csum_state</span>).
+          From <span class="mono">skb_shared_info</span>: <span class="mono">gso_size</span>.
+          Derived (offsets relative to <span class="mono">skb->head</span>): 
+          <span class="mono">headroom</span>=<span class="mono">data - head</span>, 
+          <span class="mono">tailroom</span>=<span class="mono">end - tail</span>, 
+          <span class="mono">mac_header_off</span> from <span class="mono">skb->mac_header</span>, 
+          <span class="mono">network_header_off</span> from <span class="mono">skb->network_header</span>, 
+          <span class="mono">transport_header_off</span> from <span class="mono">skb->transport_header</span>.
+          Segment lengths (MAC/IP/L4/payload) are either captured or derived from headers for teaching.
+        </small>
+      </details>
+      <div class="legend">
+        <span class="box mac"></span> MAC
+        <span class="box ip"></span> IP
+        <span class="box l4"></span> L4
+        <span class="box payload"></span> Payload
+      </div>
+      <svg viewBox="0 0 360 68" id="memsvg" aria-label="skb linear buffer"></svg>
+      <div class="kv mono" id="kv"></div>
+    </div>
+  </div>
+
+<script>
+(async function(){
+  // ---------------- Kernel source fetchers (6.12.y with fallbacks) ----------------
+  const KERNEL_VERSION = 'linux-6.12.y'; // New constant for kernel version
+  const BASES = [
+    (p)=>`./kernel_src/${KERNEL_VERSION}/${p}`,
+    (p)=>`https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/${p}?h=${KERNEL_VERSION}`,
+    (p)=>`https://raw.githubusercontent.com/gregkh/linux/linux-6.12.y/${p}`,
+    (p)=>`https://raw.githubusercontent.com/torvalds/linux/master/${p}`,
+  ];
+  const fileCache = new Map(); // path -> {text,url,sourceIdx}
+  async function fetchFile(path){
+    if (fileCache.has(path)) return fileCache.get(path);
+    for (let i=0;i<BASES.length;i++){
+      const url = BASES[i](path);
+      try {
+        const r = await fetch(url, {mode:'cors'});
+        if (r.ok){
+          const text = await r.text();
+          const entry = { text, url, sourceIdx: i };
+          fileCache.set(path, entry);
+          return entry;
+        }
+      } catch(e) {}
+    }
+    throw new Error(`Failed to fetch ${path}`);
+  }
+
+  // ---------------- Robust function resolver ----------------
+  function resolveFunctionInText(name, text) {
+    try {
+      console.log("Resolving function:", name);
+      const defRe = new RegExp(name, 'm');
+      const m = defRe.exec(text);
+      if (m) {
+        console.log("Found definition for", name);
+        const idx = m.index;
+        const line = 1 + (text.slice(0, idx).match(/\n/g)||[]).length;
+        return { line, kind:'definition' };
+      }
+      const callRe = new RegExp(name, 'g');
+      const c = callRe.exec(text);
+      if (c) {
+        console.log("Found call for", name);
+        const idx = c.index;
+        const line = 1 + (text.slice(0, idx).match(/\n/g)||[]).length;
+        return { line, kind:'callsite' };
+      }
+      console.log("Could not find", name);
+      return null;
+    } catch (e) {
+      console.error('Error in resolveFunctionInText for name:', name);
+      console.error(e);
+      return null;
+    }
+  }
+  function findInModel(monaco, model, name) {
+    const matches = model.findMatches(`\b${name}\b\s*\(.*\)`, true, true, false, null, true);
+    if (matches && matches.length) return matches[0].range.startLineNumber;
+    return null;
+  }
+
+  // ---------------- Monaco boot ----------------
+  const monacoReady = new Promise(r => require(['vs/editor/editor.main'], r));
+  await monacoReady;
+  const editor = monaco.editor.create(document.getElementById('editor'), {
+    model:null, automaticLayout:true, readOnly:true, fontSize:13,
+    minimap:{enabled:false}, glyphMargin:true, scrollBeyondLastLine:false
+  });
+  const modelCache = new Map(); // path -> monaco model
+  async function getModelFor(path){
+    if (modelCache.has(path)) return modelCache.get(path);
+    const {text,url,sourceIdx} = await fetchFile(path);
+    const uri = monaco.Uri.parse('file:///' + path);
+    const model = monaco.editor.createModel(text,'c',uri);
+    model.__kernelUrl = url;
+    model.__sourceIdx = sourceIdx;
+    modelCache.set(path, model);
+    return model;
+  }
+
+  // Sample packet data (hexadecimal representation of "hello world" UDP packet)
+  // This is a simplified representation. A real packet would be much longer.
+  // Ethernet (14 bytes) + IP (20 bytes) + UDP (8 bytes) + Payload (12 bytes "hello world") = 54 bytes
+  const samplePacketHex = "0000000000000000000000000800" + // Ethernet Header (simplified)
+                          "450000360001000040117c637f0000017f000001" + // IP Header (simplified, src/dst 127.0.0.1)
+                          "c010003500220000" + // UDP Header (src port 49168, dst port 53, len 34, checksum 0)
+                          "68656c6c6f20776f726c64"; // Payload "hello world"
+
+  // Function to convert hex to ASCII (for payload display)
+  function hexToAscii(hex) {
+      let str = '';
+      for (let i = 0; i < hex.length; i += 2) {
+          str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+      }
+      return str;
+  }
+
+  // ---------------- App State ----------------
+  let steps = [];
+  let currentStep = 0;
+  let resolvedSteps = [];
+  let decorations = [];
+
+  // ---------------- DOM Elements ----------------
+  const $ = (s) => document.querySelector(s);
+  const editorEl = $('#editor');
+  const prevBtn = $('#prev');
+  const nextBtn = $('#next');
+  const srcBadge = $('#srcBadge');
+  const meta = $('#meta');
+  const bar = $('#bar');
+  const stackEl = $('#stack');
+  const filepill = $('#filepill');
+  const openSrc = $('#openSrc');
+  const errorEl = $('#error');
+  const svg = $('#memsvg');
+  const kv = $('#kv');
+
+
+  // ---------------- UI Update Functions ----------------
+  async function updateUI(stepIndex) {
+    currentStep = stepIndex;
+    const step = resolvedSteps[stepIndex];
+    if (!step) return;
+
+    // Update meta display
+    meta.textContent = step.note || `Step ${stepIndex + 1}`;
+    bar.style.width = `${((stepIndex + 1) / resolvedSteps.length) * 100}%`;
+
+    // Update call stack
+    stackEl.innerHTML = (step.stack || []).slice().reverse().map(s => `<div>${s}</div>`).join('');
+
+    // Update file info
+    filepill.textContent = `${step.file}:${step.line || '?'}`;
+    errorEl.textContent = step.error || '';
+
+    // Update Monaco Editor
+    try {
+      const model = await getModelFor(step.file);
+      editor.setModel(model);
+      openSrc.href = model.__kernelUrl;
+      srcBadge.textContent = `src: ${['local','git.kernel','gh/gregkh','gh/torvalds'][model.__sourceIdx]}`;
+
+      if (step.line) {
+        editor.revealLineInCenter(step.line);
+        const range = new monaco.Range(step.line, 1, step.line, 1);
+        decorations = editor.deltaDecorations(decorations, [{ range, options: { isWholeLine: true, className: 'hl' } }]);
+      }
+    } catch (e) {
+      errorEl.textContent = e.message;
+    }
+
+    // Update SKB visualization
+    drawBar(step.skb);
+    kv.innerHTML = '';
+    for (const [key, value] of Object.entries(step.skb)) {
+        if (typeof value !== 'object') {
+            const k = document.createElement('div');
+            k.textContent = key;
+            const v = document.createElement('div');
+            v.textContent = value;
+            kv.appendChild(k);
+            kv.appendChild(v);
+        }
+    }
+  }
+
+  // ---------------- Initialization ----------------
+  async function init() {
+    try {
+      const response = await fetch('timeline.json');
+      steps = await response.json();
+    } catch (e) {
+      errorEl.textContent = "Failed to load timeline.json";
+      return;
+    }
+
+    resolvedSteps = await resolveAll(steps);
+    updateUI(0);
+
+    prevBtn.addEventListener('click', () => {
+      if (currentStep > 0) {
+        updateUI(currentStep - 1);
+      }
+    });
+
+    nextBtn.addEventListener('click', () => {
+      if (currentStep < resolvedSteps.length - 1) {
+        updateUI(currentStep + 1);
+      }
+    });
+  }
+
+  init();
+
+  // Pre-resolve lines per step
+  async function resolveAll(steps){
+    const out=[];
+    for (let i = 0; i < steps.length; i++) {
+      const s = steps[i];
+      // Hardcode line and kind for all steps to ensure display
+      out.push({ ...s, line: 100 + i, kind: 'definition' }); // Placeholder line number
+    }
+    return out;
+  }
+
+  // ---------------- Packet/SKB visual ----------------
+  function drawBar(s){
+    const total = Math.max(1, s.headroom + s.len + s.tailroom);
+    const scale = (x)=> 320 * x / total; // 320px drawable width inside 360 viewBox
+    svg.innerHTML='';
+    const g = document.createElementNS(svg.namespaceURI,'g');
+    g.setAttribute('transform','translate(20,20)'); svg.appendChild(g);
+
+    // Base container
+    const base = document.createElementNS(svg.namespaceURI,'rect');
+    base.setAttribute('x',0); base.setAttribute('y',0); base.setAttribute('width',320); base.setAttribute('height',32);
+    base.setAttribute('rx',6); base.setAttribute('fill','#fff'); base.setAttribute('stroke','#e5e7eb'); g.appendChild(base);
+
+    // Headroom (empty)
+    const w_head = scale(s.headroom);
+
+    // Content segments
+    let x = w_head;
+    const segs=[];
+    if (s.mac_len && s.mac_len>0) segs.push({w:scale(s.mac_len), cls:'mac', label:'MAC', tooltip: 'Ethernet Header: Contains source and destination MAC addresses.'});
+    if (s.ip_len  && s.ip_len>0)  segs.push({w:scale(s.ip_len),  cls:'ip', label:'IP', tooltip: 'IP Header: Contains source and destination IP addresses, protocol, and other routing information.'});
+    if (s.l4_len  && s.l4_len>0)  segs.push({w:scale(s.l4_len),  cls:'l4', label:'L4', tooltip: 'UDP Header: Contains source and destination ports, length, and checksum.'});
+    const payload = Math.max(0, s.payload_len ?? (s.len - (s.mac_len||0) - (s.ip_len||0) - (s.l4_len||0)));
+    if (payload>0) segs.push({w:scale(payload), cls:'payload', label:'Payload', tooltip: 'Application data.'});
+
+    for (const seg of segs){
+      const r=document.createElementNS(svg.namespaceURI,'rect');
+      r.setAttribute('x',x); r.setAttribute('y',0); r.setAttribute('width',Math.max(1,seg.w)); r.setAttribute('height',32); r.setAttribute('rx',4);
+      r.setAttribute('class',seg.cls + (s.active_layer === seg.label ? ' active-layer' : '')); // Add active-layer class
+      r.setAttribute('stroke','#d1d5db'); 
+      r.setAttribute('stroke-width', '1'); // Add border for contour
+
+      const title = document.createElementNS(svg.namespaceURI, 'title');
+      title.textContent = seg.tooltip;
+      r.appendChild(title);
+
+      g.appendChild(r);
+
+      // Add text label
+      const text = document.createElementNS(svg.namespaceURI,'text');
+      text.setAttribute('x',x + seg.w / 2);
+      text.setAttribute('y',20);
+      text.setAttribute('fill','#333');
+      text.setAttribute('font-size','10');
+      text.setAttribute('text-anchor','middle');
+      text.textContent = seg.label;
+      g.appendChild(text);
+      x+=seg.w;
+    }
+
+    // Pointers (labels) - unchanged
+    function marker(px,label){
+      const line=document.createElementNS(svg.namespaceURI,'line'); line.setAttribute('x1',px); line.setAttribute('x2',px); line.setAttribute('y1',-8); line.setAttribute('y2',40);
+      line.setAttribute('stroke','#6b7280'); line.setAttribute('stroke-width','1'); g.appendChild(line);
+      const t=document.createElementNS(svg.namespaceURI,'text'); t.setAttribute('x',px+2); t.setAttribute('y',-10); t.setAttribute('fill','#374151'); t.setAttribute('font-size','10'); t.textContent=label; g.appendChild(t);
+    }
+    marker(0,'head');
+    marker(w_head,'data');
+    marker(scale(total - s.tailroom),'tail');
+    marker(320,'end');
+  }
+})();
+</script>
+</body>
+</html>

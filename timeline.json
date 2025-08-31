@@ -1,0 +1,54 @@
+[
+  {
+    "file": "net/core/dev.c",
+    "func": "netif_receive_skb",
+    "stack": ["netif_receive_skb"],
+    "note": "Driver/NAPI hands a frame to the stack (Ethernet + IPv4 + TCP).",
+    "skb": {
+      "len": 66, "data_len": 0, "protocol": 2048, "mark": 0, "prio": 0, "truesize": 2304, "gso_size": 0, "csum_state": "CHECKSUM_UNNECESSARY",
+      "headroom": 64, "tailroom": 1984,
+      "mac_header_off": 0, "network_header_off": 14, "transport_header_off": 34,
+      "mac_len": 14, "ip_len": 20, "l4_len": 20, "payload_len": 12
+    },
+    "queue": {"name": "NAPI", "depth": 0}
+  },
+  {
+    "file": "net/ipv4/ip_input.c",
+    "func": "ip_rcv",
+    "stack": ["netif_receive_skb", "ip_rcv"],
+    "note": "L2 peeled: data advanced by 14; set network header; verify checksum.",
+    "skb": {
+      "len": 52, "data_len": 0, "protocol": 2048, "mark": 0, "prio": 0, "truesize": 2304, "gso_size": 0, "csum_state": "CHECKSUM_UNNECESSARY",
+      "headroom": 78, "tailroom": 1984,
+      "mac_header_off": -1, "network_header_off": 78, "transport_header_off": 98,
+      "mac_len": 0, "ip_len": 20, "l4_len": 20, "payload_len": 12
+    },
+    "queue": {"name": "L3", "depth": 0}
+  },
+  {
+    "file": "net/ipv4/tcp_ipv4.c",
+    "func": "tcp_v4_rcv",
+    "stack": ["netif_receive_skb", "ip_rcv", "tcp_v4_rcv"],
+    "note": "IPv4 payload handed to TCP; L3 peeled.",
+    "skb": {
+      "len": 32, "data_len": 0, "protocol": 2048, "mark": 0, "prio": 0, "truesize": 2304, "gso_size": 0, "csum_state": "CHECKSUM_UNNECESSARY",
+      "headroom": 98, "tailroom": 1984,
+      "mac_header_off": -1, "network_header_off": -1, "transport_header_off": 98,
+      "mac_len": 0, "ip_len": 0, "l4_len": 20, "payload_len": 12
+    },
+    "queue": {"name": "socket_rx", "depth": 4}
+  },
+  {
+    "file": "net/core/dev.c",
+    "func": "enqueue_to_backlog",
+    "stack": ["netif_receive_skb", "ip_rcv", "tcp_v4_rcv", "enqueue_to_backlog"],
+    "note": "(Sometimes) enqueue to per-CPU backlog if busy.",
+    "skb": {
+      "len": 32, "data_len": 0, "protocol": 2048, "mark": 0, "prio": 0, "truesize": 2304, "gso_size": 0, "csum_state": "CHECKSUM_UNNECESSARY",
+      "headroom": 98, "tailroom": 1984,
+      "mac_header_off": -1, "network_header_off": -1, "transport_header_off": 98,
+      "mac_len": 0, "ip_len": 0, "l4_len": 20, "payload_len": 12
+    },
+    "queue": {"name": "backlog", "depth": 7}
+  }
+]
