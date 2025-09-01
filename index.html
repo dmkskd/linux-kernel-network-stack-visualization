@@ -19,6 +19,10 @@
   svg{width:100%;height:68px}
   .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:13px}
   .chg{background:#fff7ed;border:1px solid #fed7aa;border:6px;padding:0 6px}
+  .packet-byte{transition:all 0.2s;position:relative}
+  .packet-byte:hover{transform:scale(1.1);z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.2)}
+  .custom-tooltip{position:absolute;background:#333;color:white;padding:4px 8px;border-radius:4px;font-size:11px;white-space:nowrap;z-index:1000;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+  .custom-tooltip::before{content:'';position:absolute;top:100%;left:50%;margin-left:-4px;border:4px solid transparent;border-top-color:#333}
   details small{display:block;margin-top:6px;color:#64748b}
   #stack div{margin:2px 0} 
   .active-layer {
@@ -43,24 +47,27 @@
         <summary class="muted" style="cursor:pointer">what are these fields?</summary>
         <small>
           <span class="mac"><strong>MAC Header:</strong></span><br>
-          &nbsp;&nbsp;Destination MAC: 00:00:00:00:00:00<br>
-          &nbsp;&nbsp;Source MAC: 00:00:00:00:00:00<br>
-          &nbsp;&nbsp;EtherType: 0x0800 (IPv4)<br>
+          &nbsp;&nbsp;Bytes 0-5: Destination MAC: 00:00:00:00:00:00<br>
+          &nbsp;&nbsp;Bytes 6-11: Source MAC: 00:00:00:00:00:00<br>
+          &nbsp;&nbsp;Bytes 12-13: EtherType: 0x0800 (IPv4)<br>
           <span class="ip"><strong>IP Header:</strong></span><br>
-          &nbsp;&nbsp;Version: 4<br>
-          &nbsp;&nbsp;Header Length: 20 bytes<br>
-          &nbsp;&nbsp;Total Length: 54 bytes<br>
-          &nbsp;&nbsp;Time to Live (TTL): 64<br>
-          &nbsp;&nbsp;Protocol: 17 (UDP)<br>
-          &nbsp;&nbsp;Source IP: 127.0.0.1<br>
-          &nbsp;&nbsp;Destination IP: 127.0.0.1<br>
+          &nbsp;&nbsp;Byte 14: Version: 4, Header Length: 20 bytes<br>
+          &nbsp;&nbsp;Byte 15: Type of Service / DSCP<br>
+          &nbsp;&nbsp;Bytes 16-17: Total Length: 54 bytes<br>
+          &nbsp;&nbsp;Bytes 18-19: Identification<br>
+          &nbsp;&nbsp;Bytes 20-21: Flags and Fragment Offset<br>
+          &nbsp;&nbsp;Byte 22: Time to Live (TTL): 64<br>
+          &nbsp;&nbsp;Byte 23: Protocol: 17 (UDP)<br>
+          &nbsp;&nbsp;Bytes 24-25: Header Checksum<br>
+          &nbsp;&nbsp;Bytes 26-29: Source IP: 127.0.0.1<br>
+          &nbsp;&nbsp;Bytes 30-33: Destination IP: 127.0.0.1<br>
           <span class="l4"><strong>UDP Header:</strong></span><br>
-          &nbsp;&nbsp;Source Port: 49168<br>
-          &nbsp;&nbsp;Destination Port: 53<br>
-          &nbsp;&nbsp;Length: 34 bytes (UDP header + data)<br>
-          &nbsp;&nbsp;Checksum: 0x0000<br>
+          &nbsp;&nbsp;Bytes 34-35: Source Port: 49168<br>
+          &nbsp;&nbsp;Bytes 36-37: Destination Port: 53<br>
+          &nbsp;&nbsp;Bytes 38-39: Length: 34 bytes (UDP header + data)<br>
+          &nbsp;&nbsp;Bytes 40-41: Checksum: 0x0000<br>
           <span class="payload"><strong>Payload:</strong></span><br>
-          &nbsp;&nbsp;Data: "hello world" (hex: 68656c6c6f20776f726c64)
+          &nbsp;&nbsp;Bytes 42+: Data: "hello world" (hex: 68656c6c6f20776f726c64)
         </small>
       </details>
       <div class="legend">
@@ -480,6 +487,57 @@
     const l4LenBytes = (skb.l4_len || 0);
     const payloadLenBytes = Math.max(0, (skb.payload_len ?? (skb.len - macLenBytes - ipLenBytes - l4LenBytes)));
 
+    // Define field descriptions with byte ranges
+    const fieldDescriptions = {
+      // MAC Header fields (14 bytes total)
+      mac: {
+        0: { range: [0, 6], desc: "Destination MAC: 00:00:00:00:00:00" },
+        6: { range: [6, 12], desc: "Source MAC: 00:00:00:00:00:00" },
+        12: { range: [12, 14], desc: "EtherType: 0x0800 (IPv4)" }
+      },
+      // IP Header fields (20 bytes total, starting after MAC)
+      ip: {
+        0: { range: [0, 1], desc: "Version: 4, Header Length: 20 bytes" },
+        1: { range: [1, 2], desc: "Type of Service / DSCP" },
+        2: { range: [2, 4], desc: "Total Length: 54 bytes" },
+        4: { range: [4, 6], desc: "Identification" },
+        6: { range: [6, 8], desc: "Flags and Fragment Offset" },
+        8: { range: [8, 9], desc: "Time to Live (TTL): 64" },
+        9: { range: [9, 10], desc: "Protocol: 17 (UDP)" },
+        10: { range: [10, 12], desc: "Header Checksum" },
+        12: { range: [12, 16], desc: "Source IP: 127.0.0.1" },
+        16: { range: [16, 20], desc: "Destination IP: 127.0.0.1" }
+      },
+      // UDP Header fields (8 bytes total)
+      l4: {
+        0: { range: [0, 2], desc: "Source Port: 49168" },
+        2: { range: [2, 4], desc: "Destination Port: 53" },
+        4: { range: [4, 6], desc: "Length: 34 bytes (UDP header + data)" },
+        6: { range: [6, 8], desc: "Checksum: 0x0000" }
+      },
+      // Payload
+      payload: {
+        0: { range: [0, -1], desc: 'Data: "hello world" (hex: 68656c6c6f20776f726c64)' }
+      }
+    };
+
+    function getFieldDescription(layer, byteIndex, layerStartByte) {
+      const layerFields = fieldDescriptions[layer];
+      if (!layerFields) return `${layer.toUpperCase()} layer - Byte ${byteIndex}`;
+      
+      const relativeIndex = byteIndex - layerStartByte;
+      
+      for (const [startOffset, field] of Object.entries(layerFields)) {
+        const start = parseInt(startOffset);
+        const end = field.range[1] === -1 ? Infinity : field.range[1];
+        
+        if (relativeIndex >= start && relativeIndex < end) {
+          return field.desc;
+        }
+      }
+      return `${layer.toUpperCase()} layer - Byte ${relativeIndex} (relative)`;
+    }
+
     let currentOffset = 0;
 
     for (let i = 0; i < packetHex.length; i += 2) {
@@ -488,20 +546,76 @@
       byteSpan.textContent = byteHex;
       byteSpan.style.padding = '2px';
       byteSpan.style.borderRadius = '2px';
+      byteSpan.style.cursor = 'help';
+      byteSpan.classList.add('packet-byte');
 
       let className = '';
+      let layerStartByte = 0;
+      
       if (currentOffset < macLenBytes) {
         className = 'mac';
+        layerStartByte = 0;
       } else if (currentOffset < macLenBytes + ipLenBytes) {
         className = 'ip';
+        layerStartByte = macLenBytes;
       } else if (currentOffset < macLenBytes + ipLenBytes + l4LenBytes) {
         className = 'l4';
+        layerStartByte = macLenBytes + ipLenBytes;
       } else if (currentOffset < macLenBytes + ipLenBytes + l4LenBytes + payloadLenBytes) {
         className = 'payload';
+        layerStartByte = macLenBytes + ipLenBytes + l4LenBytes;
       }
+      
       byteSpan.classList.add(className);
+      
+      // Add custom tooltip functionality
+      const description = getFieldDescription(className, currentOffset, layerStartByte);
+      if (description) {
+        // Remove native title and add custom tooltip
+        byteSpan.setAttribute('data-tooltip', description);
+        
+        byteSpan.addEventListener('mouseenter', function(e) {
+          showCustomTooltip(e.target, description);
+        });
+        
+        byteSpan.addEventListener('mouseleave', function() {
+          hideCustomTooltip();
+        });
+      }
+      
       packetBytesDiv.appendChild(byteSpan);
       currentOffset++;
+    }
+  }
+
+  // Custom tooltip functions
+  let currentTooltip = null;
+
+  function showCustomTooltip(element, text) {
+    hideCustomTooltip(); // Remove any existing tooltip
+    
+    const tooltip = document.createElement('div');
+    tooltip.className = 'custom-tooltip';
+    tooltip.textContent = text;
+    document.body.appendChild(tooltip);
+    
+    const rect = element.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    // Position tooltip above the element, centered
+    const left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    const top = rect.top - tooltipRect.height - 8; // 8px gap
+    
+    tooltip.style.left = Math.max(4, left) + 'px'; // Keep within viewport
+    tooltip.style.top = Math.max(4, top) + 'px';
+    
+    currentTooltip = tooltip;
+  }
+
+  function hideCustomTooltip() {
+    if (currentTooltip) {
+      currentTooltip.remove();
+      currentTooltip = null;
     }
   }
 })();
