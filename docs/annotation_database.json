@@ -1,0 +1,831 @@
+{
+  "metadata": {
+    "generated_at": "2025-09-03T19:49:50+01:00",
+    "version": "1.0-production",
+    "kernel_version": "24.6.0",
+    "scope": "production_capture",
+    "functions_count": 41
+  },
+  "annotations": {
+    "nf_nat_inet_fn": {
+      "basic": {
+        "file": "unknown/nf_nat_inet_fn.c",
+        "line_range": "1000-1020",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "kfree_skbmem": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1134-1154",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "netif_rx_internal": {
+      "basic": {
+        "file": "net/core/dev.c",
+        "line_range": "5243-5263",
+        "layer": "Link Layer",
+        "purpose": "Core link layer processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential link layer operations on network packets.",
+        "intermediate": "Implements core link layer protocol logic and packet manipulation.",
+        "advanced": "Low-level link layer implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering link layer processing",
+        "packet_state_after": "Packet processed by link layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "apparmor_socket_sock_rcv_skb": {
+      "basic": {
+        "file": "unknown/apparmor_socket_sock_rcv_skb.c",
+        "line_range": "1000-1020",
+        "layer": "Socket Layer",
+        "purpose": "Process incoming network packets at socket layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the socket layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs socket layer processing including validation and header parsing.",
+        "advanced": "Core implementation of socket layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering socket layer processing",
+        "packet_state_after": "Packet processed by socket layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_rcv_core": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "456-476",
+        "layer": "Network Layer",
+        "purpose": "Process incoming network packets at network layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the network layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs network layer processing including validation and header parsing.",
+        "advanced": "Core implementation of network layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "nf_ip_checksum": {
+      "basic": {
+        "file": "unknown/nf_ip_checksum.c",
+        "line_range": "1000-1020",
+        "layer": "Network Layer",
+        "purpose": "Core network layer processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential network layer operations on network packets.",
+        "intermediate": "Implements core network layer protocol logic and packet manipulation.",
+        "advanced": "Low-level network layer implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "nf_conntrack_handle_packet": {
+      "basic": {
+        "file": "unknown/nf_conntrack_handle_packet.c",
+        "line_range": "1000-1020",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__inet_lookup_established": {
+      "basic": {
+        "file": "net/ipv4/tcp_ipv4.c",
+        "line_range": "506-526",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "udp_unicast_rcv_skb": {
+      "basic": {
+        "file": "net/ipv4/udp.c",
+        "line_range": "2419-2439",
+        "layer": "Transport Layer",
+        "purpose": "Process incoming network packets at transport layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the transport layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs transport layer processing including validation and header parsing.",
+        "advanced": "Core implementation of transport layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering transport layer processing",
+        "packet_state_after": "Packet processed by transport layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__udp4_lib_err": {
+      "basic": {
+        "file": "net/ipv4/udp.c",
+        "line_range": "776-796",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_rcv": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "560-580",
+        "layer": "Network Layer",
+        "purpose": "Process incoming network packets at network layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the network layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs network layer processing including validation and header parsing.",
+        "advanced": "Core implementation of network layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__udp4_lib_lookup": {
+      "basic": {
+        "file": "net/ipv4/udp.c",
+        "line_range": "527-547",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_rcv_finish": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "435-455",
+        "layer": "Network Layer",
+        "purpose": "Process incoming network packets at network layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the network layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs network layer processing including validation and header parsing.",
+        "advanced": "Core implementation of network layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__netif_receive_skb": {
+      "basic": {
+        "file": "net/core/dev.c",
+        "line_range": "5834-5854",
+        "layer": "Link Layer",
+        "purpose": "Process incoming network packets at link layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the link layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs link layer processing including validation and header parsing.",
+        "advanced": "Core implementation of link layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering link layer processing",
+        "packet_state_after": "Packet processed by link layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "skb_release_head_state": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1164-1184",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "skb_defer_rx_timestamp": {
+      "basic": {
+        "file": "net/core/timestamping.c",
+        "line_range": "46-66",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "skb_free_head": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1081-1101",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "security_sock_rcv_skb": {
+      "basic": {
+        "file": "unknown/security_sock_rcv_skb.c",
+        "line_range": "1000-1020",
+        "layer": "Socket Layer",
+        "purpose": "Process incoming network packets at socket layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the socket layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs socket layer processing including validation and header parsing.",
+        "advanced": "Core implementation of socket layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering socket layer processing",
+        "packet_state_after": "Packet processed by socket layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "skb_release_data": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1094-1114",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "udp_err": {
+      "basic": {
+        "file": "net/ipv4/udp.c",
+        "line_range": "870-890",
+        "layer": "Transport Layer",
+        "purpose": "Core transport layer processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential transport layer operations on network packets.",
+        "intermediate": "Implements core transport layer protocol logic and packet manipulation.",
+        "advanced": "Low-level transport layer implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering transport layer processing",
+        "packet_state_after": "Packet processed by transport layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "nf_conntrack_tcp_packet": {
+      "basic": {
+        "file": "unknown/nf_conntrack_tcp_packet.c",
+        "line_range": "1000-1020",
+        "layer": "Transport Layer",
+        "purpose": "Core transport layer processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential transport layer operations on network packets.",
+        "intermediate": "Implements core transport layer protocol logic and packet manipulation.",
+        "advanced": "Low-level transport layer implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering transport layer processing",
+        "packet_state_after": "Packet processed by transport layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__netif_receive_skb_one_core": {
+      "basic": {
+        "file": "net/core/dev.c",
+        "line_range": "5733-5753",
+        "layer": "Link Layer",
+        "purpose": "Process incoming network packets at link layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the link layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs link layer processing including validation and header parsing.",
+        "advanced": "Core implementation of link layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering link layer processing",
+        "packet_state_after": "Packet processed by link layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "sk_skb_reason_drop": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1231-1251",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_protocol_deliver_rcu": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "187-207",
+        "layer": "Network Layer",
+        "purpose": "Deliver packets to next layer from network layer"
+      },
+      "explanations": {
+        "beginner": "This function delivers processed packets from network layer to the appropriate next layer or application.",
+        "intermediate": "Packet delivery mechanism that routes packets based on network layer information.",
+        "advanced": "Delivery implementation with protocol lookup and packet forwarding logic."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_rcv_finish_core.isra.0": {
+      "basic": {
+        "file": "unknown/ip_rcv_finish_core.isra.0.c",
+        "line_range": "1000-1020",
+        "layer": "Network Layer",
+        "purpose": "Process incoming network packets at network layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the network layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs network layer processing including validation and header parsing.",
+        "advanced": "Core implementation of network layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_sublist_rcv": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "633-653",
+        "layer": "Network Layer",
+        "purpose": "Process incoming network packets at network layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the network layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs network layer processing including validation and header parsing.",
+        "advanced": "Core implementation of network layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "consume_skb": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1422-1442",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_list_rcv": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "642-662",
+        "layer": "Network Layer",
+        "purpose": "Process incoming network packets at network layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the network layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs network layer processing including validation and header parsing.",
+        "advanced": "Core implementation of network layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__kfree_skb": {
+      "basic": {
+        "file": "net/core/skbuff.c",
+        "line_range": "1194-1214",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "tcp_rate_skb_delivered": {
+      "basic": {
+        "file": "net/ipv4/tcp_rate.c",
+        "line_range": "80-100",
+        "layer": "Transport Layer",
+        "purpose": "Deliver packets to next layer from transport layer"
+      },
+      "explanations": {
+        "beginner": "This function delivers processed packets from transport layer to the appropriate next layer or application.",
+        "intermediate": "Packet delivery mechanism that routes packets based on transport layer information.",
+        "advanced": "Delivery implementation with protocol lookup and packet forwarding logic."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering transport layer processing",
+        "packet_state_after": "Packet processed by transport layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__icmp_send": {
+      "basic": {
+        "file": "net/ipv4/icmp.c",
+        "line_range": "594-614",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "icmp_socket_deliver": {
+      "basic": {
+        "file": "net/ipv4/icmp.c",
+        "line_range": "830-850",
+        "layer": "Core Network",
+        "purpose": "Deliver packets to next layer from core network"
+      },
+      "explanations": {
+        "beginner": "This function delivers processed packets from core network to the appropriate next layer or application.",
+        "intermediate": "Packet delivery mechanism that routes packets based on core network information.",
+        "advanced": "Delivery implementation with protocol lookup and packet forwarding logic."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_local_deliver": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "242-262",
+        "layer": "Network Layer",
+        "purpose": "Deliver packets to next layer from network layer"
+      },
+      "explanations": {
+        "beginner": "This function delivers processed packets from network layer to the appropriate next layer or application.",
+        "intermediate": "Packet delivery mechanism that routes packets based on network layer information.",
+        "advanced": "Delivery implementation with protocol lookup and packet forwarding logic."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "netif_receive_skb_list_internal": {
+      "basic": {
+        "file": "net/core/dev.c",
+        "line_range": "5945-5965",
+        "layer": "Link Layer",
+        "purpose": "Process incoming network packets at link layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the link layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs link layer processing including validation and header parsing.",
+        "advanced": "Core implementation of link layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering link layer processing",
+        "packet_state_after": "Packet processed by link layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "skb_ensure_writable": {
+      "basic": {
+        "file": "net/ipv4/netfilter/nf_nat_snmp_basic_main.c",
+        "line_range": "189-209",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "ip_local_deliver_finish": {
+      "basic": {
+        "file": "net/ipv4/ip_input.c",
+        "line_range": "227-247",
+        "layer": "Network Layer",
+        "purpose": "Deliver packets to next layer from network layer"
+      },
+      "explanations": {
+        "beginner": "This function delivers processed packets from network layer to the appropriate next layer or application.",
+        "intermediate": "Packet delivery mechanism that routes packets based on network layer information.",
+        "advanced": "Delivery implementation with protocol lookup and packet forwarding logic."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering network layer processing",
+        "packet_state_after": "Packet processed by network layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__netif_receive_skb_core.constprop.0": {
+      "basic": {
+        "file": "unknown/__netif_receive_skb_core.constprop.0.c",
+        "line_range": "1000-1020",
+        "layer": "Link Layer",
+        "purpose": "Process incoming network packets at link layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the link layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs link layer processing including validation and header parsing.",
+        "advanced": "Core implementation of link layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering link layer processing",
+        "packet_state_after": "Packet processed by link layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "inet_ehashfn": {
+      "basic": {
+        "file": "net/ipv4/inet_hashtables.c",
+        "line_range": "32-52",
+        "layer": "Core Network",
+        "purpose": "Core core network processing function"
+      },
+      "explanations": {
+        "beginner": "This function performs essential core network operations on network packets.",
+        "intermediate": "Implements core core network protocol logic and packet manipulation.",
+        "advanced": "Low-level core network implementation with performance optimizations."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__netif_receive_skb_list_core": {
+      "basic": {
+        "file": "net/core/dev.c",
+        "line_range": "5793-5813",
+        "layer": "Link Layer",
+        "purpose": "Process incoming network packets at link layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the link layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs link layer processing including validation and header parsing.",
+        "advanced": "Core implementation of link layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering link layer processing",
+        "packet_state_after": "Packet processed by link layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "__udp4_lib_rcv": {
+      "basic": {
+        "file": "net/ipv4/udp.c",
+        "line_range": "2441-2461",
+        "layer": "Core Network",
+        "purpose": "Process incoming network packets at core network"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the core network. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs core network processing including validation and header parsing.",
+        "advanced": "Core implementation of core network packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering core network processing",
+        "packet_state_after": "Packet processed by core network, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    },
+    "udp_rcv": {
+      "basic": {
+        "file": "net/ipv4/udp.c",
+        "line_range": "2684-2704",
+        "layer": "Transport Layer",
+        "purpose": "Process incoming network packets at transport layer"
+      },
+      "explanations": {
+        "beginner": "This function handles incoming network packets in the transport layer. It processes packet data and forwards it to the next layer.",
+        "intermediate": "Receives packets from lower layer, performs transport layer processing including validation and header parsing.",
+        "advanced": "Core implementation of transport layer packet reception with error handling and protocol demultiplexing."
+      },
+      "packet_flow": {
+        "packet_state_before": "Packet entering transport layer processing",
+        "packet_state_after": "Packet processed by transport layer, ready for next stage",
+        "next_likely_functions": [
+          "Next layer processing functions"
+        ]
+      }
+    }
+  }
+}

@@ -1,41 +1,23 @@
-# Build artifacts and generated files
+# Build artifacts and generated files (not the docs/ versions)
 build/
-timeline.json
-timeline_annotated.json
-annotation_database.json
+/timeline.json
+/annotation_database.json
 
 # Generated annotation directories (timestamped directories from annotate.sh)
 annotations_*/
 
 # Downloaded kernel source (large and can be re-downloaded)
+# But allow docs/kernel_src/ for GitHub Pages
 kernel_src/
+!docs/kernel_src/
 
 # Debug and temporary files
-debug/*.txt
-debug/network_trace_*
-debug/kernel_trace_*
-
-# Temporary trace files
+debug/
 /tmp/network_trace_*
 
 # Operating System Files
 .DS_Store
 Thumbs.db
-
-# Node.js
-node_modules/
-npm-debug.log
-yarn-debug.log
-yarn-error.log
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-vvenv/
 
 # Editor/IDE
 .vscode/
@@ -43,13 +25,9 @@ vvenv/
 *.sublime-project
 *.sublime-workspace
 
-# Build artifacts
-dist/
-build/
+# Logs
 *.log
-debug/
 
 # Local files
 *.local
 *.bak
-debug.py
