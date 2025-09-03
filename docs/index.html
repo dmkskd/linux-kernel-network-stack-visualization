@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Linux Kernel Network Stack Visualization</title>
+<style>
+  html,body{height:100%;margin:0} 
+  body{display:flex;flex-direction:column;min-height:100%}
+  
+  /* Info Banner Styles */
+  .info-banner{background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;padding:12px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+  .banner-content{max-width:1200px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+  .banner-title{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .banner-subtitle{font-size:13px;opacity:0.9;margin-top:2px}
+  .banner-info{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  .info-item{display:flex;flex-direction:column;align-items:center;min-width:80px}
+  .info-label{font-size:11px;opacity:0.8;text-transform:uppercase;letter-spacing:0.5px}
+  .info-value{font-size:13px;font-weight:500;margin-top:1px}
+  .limitation-badge{background:rgba(255,255,255,0.2);padding:4px 8px;border-radius:12px;font-size:11px;border:1px solid rgba(255,255,255,0.3)}
+  
+  /* Main content area */
+  .main-content{display:flex;flex:1;min-height:0}
+  #editor{flex:1;min-width:0;position:relative}
+  .side{width:460px;border-left:1px solid #e5e7eb;background:#fcfcfd;display:flex;flex-direction:column;overflow-y:auto;max-height:100vh}
+  .section{padding:12px;border:1px solid #8ab4f8; margin-bottom: 8px;}
+  .btn{cursor:pointer;padding:6px 12px;border:1px solid #cbd5e1;border-radius:88px;background:#f8fafc;transition:all 0.2s;color:#374151}
+  .btn:hover{background:#e2e8f0;border-color:#94a3b8}
+  .btn.primary{background:#22c55e;color:white;border-color:#16a34a}
+  .btn.primary:hover{background:#16a34a}
+  
+  /* Flow toggle button styles */
+  .btn.flow-rx-active{background:#059669!important;color:white!important;border-color:#047857!important;font-weight:600}
+  .btn.flow-tx-active{background:#dc2626!important;color:white!important;border-color:#b91c1c!important;font-weight:600}
+  .btn.flow-inactive{background:#f8fafc!important;color:#6b7280!important;border-color:#d1d5db!important;font-weight:normal}
+  .btn.flow-inactive:hover{background:#f1f5f9!important;color:#374151!important;border-color:#9ca3af!important}
+  .muted{color:#6b7280} .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .progress{height:6px;background:#eee;border-radius:999px;overflow:hidden;margin:8px 0}.progress>div{height:100%;background:#8ab4f8;width:0%;transition:width .2s}
+  .hl{background:rgba(255,225,130,.5)}
+  .pill{display:inline-block;padding:2px 6px;border-radius:999px;background:#eef;border:1px solid #99c;font-size:12px}
+  .legend{display:flex;gap:8px;align-items:center;font-size:12px;margin:6px 0 4px}
+  .box{width:12px;height:12px;border-radius:2px;display:inline-block}
+  .mac{background:#e2e8f0}.ip{background:#fde68a}.l4{background:#86efac}.payload{background:#c7d2fe}
+  svg{width:100%;height:200px}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;font-size:13px}
+  .chg{background:#fff7ed;border:1px solid #fed7aa;border:6px;padding:0 6px}
+  .packet-byte{transition:all 0.2s;position:relative}
+  .packet-byte:hover{transform:scale(1.1);z-index:10;box-shadow:0 2px 4px rgba(0,0,0,0.2)}
+  .custom-tooltip{position:absolute;background:#333;color:white;padding:4px 8px;border-radius:4px;font-size:11px;white-space:nowrap;z-index:1000;pointer-events:none;box-shadow:0 2px 6px rgba(0,0,0,0.3)}
+  .custom-tooltip::before{content:'';position:absolute;top:100%;left:50%;margin-left:-4px;border:4px solid transparent;border-top-color:#333}
+  details small{display:block;margin-top:6px;color:#64748b}
+  
+  /* Combined Control Panel Styles */
+  .control-panel{background:#f8fafc;border:1px solid #d1d5db;border-radius:8px;padding:12px}
+  .step-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .step-info{display:flex;align-items:center;gap:12px}
+  .step-counter{background:#3b82f6;color:white;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:500}
+  .current-function{color:#059669;font-weight:500;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .controls{display:flex;gap:6px;margin:8px 0}
+  .call-stack{margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb}
+  .call-stack-header{font-size:12px;font-weight:500;color:#374151;margin-bottom:6px}
+  .stack-function{margin:2px 0;font-size:12px;color:#6b7280;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .stack-function.current{background:#dcfce7;color:#059669;padding:2px 6px;border-radius:4px;border-left:3px solid #10b981}
+  .stack-function.annotated::after{content:' 📝';font-size:10px}
+  
+  /* Annotation Integration Styles */
+  .annotation-badge{display:inline-block;background:#10b981;color:white;border-radius:50%;width:16px;height:16px;text-align:center;line-height:16px;font-size:10px;margin-left:4px;vertical-align:top}
+  .function-info{background:#f0f9ff;border:1px solid #0ea5e9;border-radius:6px;padding:10px;margin-bottom:12px}
+  .function-title{font-weight:bold;color:#0369a1;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between}
+  .layer-badge{background:#0ea5e9;color:white;padding:2px 8px;border-radius:12px;font-size:11px;text-transform:uppercase}
+  .explanation-tabs{display:flex;margin:8px 0 0 0;border-bottom:1px solid #e5e7eb}
+  .tab{padding:6px 12px;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;font-size:12px}
+  .tab.active{border-bottom-color:#0ea5e9;color:#0ea5e9}
+  .tab-content{display:none;padding:8px 0;font-size:13px;line-height:1.4}
+  .tab-content.active{display:block}
+  .packet-flow-mini{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:8px 0;font-size:11px}
+  .flow-state{padding:6px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:4px;text-align:center}
+  .flow-arrow{font-size:16px;color:#6b7280}
+  
+  /* Monaco Editor Enhancements */
+  .annotation-overlay{position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:10}
+  .line-annotation{position:absolute;right:10px;background:#10b981;color:white;padding:2px 6px;border-radius:3px;font-size:10px;pointer-events:auto;cursor:pointer;opacity:0.8}
+  .line-annotation:hover{opacity:1}
+  
+  /* Monaco editor line highlighting */
+  .current-execution-line{background-color:rgba(245,158,11,0.25)!important;border-left:4px solid #f59e0b!important;box-shadow:inset 0 0 10px rgba(245,158,11,0.1)!important}
+  .current-execution-glyph::before{content:'▶️';color:#f59e0b;font-weight:bold;margin-left:2px;font-size:14px}
+  .function-entry-line{background-color:rgba(99,102,241,0.15)!important;border-left:3px solid #6366f1!important}
+  .function-entry-glyph::before{content:'🎯';color:#6366f1;font-size:12px;margin-left:2px}
+  .function-boundary-line{background-color:rgba(16,185,129,0.1)!important;border-left:2px solid #10b981!important}
+  .function-boundary-glyph::before{content:'┃';color:#10b981;font-size:14px;margin-left:4px}
+  
+  /* Enhanced function highlighting */
+  .function-name-highlight{background-color:rgba(59,130,246,0.2)!important;border:2px solid #3b82f6!important;border-radius:4px!important}
+  .current-function-line{background:linear-gradient(90deg, rgba(245,158,11,0.3) 0%, rgba(245,158,11,0.1) 100%)!important;border-left:5px solid #f59e0b!important}
+  
+  /* Function info panel styles */
+  .function-info{display:none}
+  .function-info.visible{display:block}
+  .has-annotation{background:#dcfce7;border-left:4px solid #10b981}
+  
+  /* Step note styling */
+  .step-note{font-size:13px;color:#6b7280;margin-top:4px;font-style:italic}
+  .file-path{font-size:11px;color:#9ca3af;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-top:2px;background:#f8fafc;padding:2px 6px;border-radius:3px;display:inline-block}
+  
+  /* File header for Monaco editor */
+  .file-header{background:#f8fafc;border-bottom:1px solid #e5e7eb;padding:8px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;color:#374151;display:flex;align-items:center;gap:8px}
+  .file-icon{color:#6b7280;font-size:14px}
+  .file-name{font-weight:500}
+  .file-path-full{color:#6b7280;font-size:11px}
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .banner-content{flex-direction:column;align-items:flex-start}
+    .banner-info{width:100%;justify-content:space-between}
+  }
+</style>
+</head>
+<body>
+  <!-- Info Banner -->
+  <div class="info-banner">
+    <div class="banner-content">
+      <div>
+        <div class="banner-title">
+          🐧 Linux Kernel Network Stack Visualization <span style="font-size:12px;opacity:0.8;">v0.1</span>
+        </div>
+        <div class="banner-subtitle">Interactive step-by-step UDP packet processing through kernel source code</div>
+      </div>
+      <div class="banner-info">
+        <div class="info-item">
+          <div class="info-label">Kernel</div>
+          <div class="info-value" id="kernel-version">6.12.y</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Protocol</div>
+          <div class="info-value">UDP Only</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Data</div>
+          <div class="info-value">Live Traced</div>
+        </div>
+        <div class="limitation-badge" onmouseenter="showLimitationsModal()" onmouseleave="closeLimitationsModal()" style="cursor: pointer;">
+          ⚠️ Limitations
+        </div>
+        <div class="limitation-badge" style="background:rgba(255,193,7,0.2);border-color:rgba(255,193,7,0.3);">
+          🚧 Work in Progress
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div id="editor">
+      <!-- File header bar -->
+      <div class="file-header" id="file-header">
+        <span class="file-icon">📄</span>
+        <span class="file-name" id="editor-file-name">Loading...</span>
+        <span class="file-path-full" id="editor-file-path">Loading file...</span>
+      </div>
+      <div id="monaco-editor-container" style="height: calc(100% - 41px);"></div>
+      <div class="annotation-overlay" id="annotation-overlay"></div>
+    </div>
+    <div class="side">
+      <!-- Control Panel at Top -->
+      <div class="section">
+        <strong>Network Stack Flow Control</strong>
+        <div class="control-panel">
+          <!-- Flow Selection Controls - Primary Driver -->
+          <div style="margin-bottom:12px">
+            <div style="font-size:12px;font-weight:500;color:#374151;margin-bottom:6px">📡 UDP Packet Flow</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button id="flowRX" class="btn primary">RX Path</button>
+            </div>
+          </div>
+          
+          <div class="step-header">
+            <div class="step-info">
+              <span class="step-counter" id="step-counter">1 / ?</span>
+              <span class="current-function" id="current-func">Loading...</span>
+              <div id="flow-direction" style="font-size:11px;margin-top:2px;color:#6b7280"></div>
+            </div>
+          </div>
+          
+          <div class="file-path" id="file-path"></div>
+          <div class="step-note" id="step-note"></div>
+          
+          <div class="progress" id="progress"><div></div></div>
+          
+          <div class="controls">
+            <div class="btn" onclick="prevStep()">← Prev</div>
+            <div class="btn" onclick="nextStep()">Next →</div>
+            <div class="btn primary" onclick="playAnimation()" id="play-btn">▶ Play</div>
+            <div class="btn" onclick="pauseAnimation()" id="pause-btn">⏸ Pause</div>
+          </div>
+          
+          <div class="call-stack">
+            <div class="call-stack-header">Call Stack (newest → oldest)</div>
+            <div id="stack"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Function Annotation Panel moved below -->
+      <div class="section" id="function-section">
+        <div id="function-info" class="function-info">
+          <div class="function-title">
+            <span id="function-name">function_name()</span>
+            <span class="layer-badge" id="function-layer">Layer</span>
+          </div>
+          <div id="function-purpose" class="muted" style="margin-bottom:8px"></div>
+          
+          <div class="explanation-tabs">
+            <button class="tab active" onclick="showExplanationTab('beginner')">Overview</button>
+            <button class="tab" onclick="showExplanationTab('intermediate')">Technical</button>
+            <button class="tab" onclick="showExplanationTab('advanced')">Implementation</button>
+          </div>
+          
+          <div id="explanation-beginner" class="tab-content active"></div>
+          <div id="explanation-intermediate" class="tab-content"></div>
+          <div id="explanation-advanced" class="tab-content"></div>
+          
+          <div class="packet-flow-mini">
+            <div class="flow-state" id="packet-before">Before</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-state" id="packet-after">After</div>
+          </div>
+          <div style="font-size:11px;color:#6b7280;margin-top:4px">
+            Next: <span id="packet-next">functions</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <strong>UDP Packet Visualization</strong>
+        <details>
+          <summary class="muted" style="cursor:pointer">what are these fields?</summary>
+          <small>
+            <span class="mac"><strong>MAC Header:</strong></span><br>
+            &nbsp;&nbsp;Bytes 0-5: Destination MAC: 00:50:56:C0:00:08<br>
+            &nbsp;&nbsp;Bytes 6-11: Source MAC: 00:0C:29:12:34:56<br>
+            &nbsp;&nbsp;Bytes 12-13: EtherType: 0x0800 (IPv4)<br><br>
+            
+            <span class="ip"><strong>IP Header:</strong></span><br>
+            &nbsp;&nbsp;Version: 4, Header Length: 20 bytes<br>
+            &nbsp;&nbsp;Total Length: 52 bytes, ID: 0x1234<br>
+            &nbsp;&nbsp;TTL: 64, Protocol: 17 (UDP), Checksum: 0x2675<br>
+            &nbsp;&nbsp;Source IP: 192.168.1.100<br>
+            &nbsp;&nbsp;Destination IP: 192.168.1.101<br><br>
+            
+            <span class="l4"><strong>UDP Header:</strong></span><br>
+            &nbsp;&nbsp;Source Port: 10000, Destination Port: 10001<br>
+            &nbsp;&nbsp;Length: 24 bytes, Checksum: 0x0000 (disabled)<br><br>
+            
+            <span class="payload"><strong>Payload:</strong></span><br>
+            &nbsp;&nbsp;Application data: "test message for demo!"
+          </small>
+        </details>
+        <div class="legend">
+          <span class="box mac"></span>MAC
+          <span class="box ip"></span>IP
+          <span class="box l4"></span>UDP
+          <span class="box payload"></span>Data
+        </div>
+        <svg id="packet-viz"></svg>
+      </div>
+
+      <div class="section">
+        <strong>Linux Network State</strong>
+        <details>
+          <summary class="muted" style="cursor:pointer">what are these structures?</summary>
+          <small>
+            Key Linux kernel network data structures that change as packets flow:<br><br>
+            
+            <strong>📦 sk_buff (Socket Buffer):</strong><br>
+            The main packet data structure containing packet data and metadata:<br>
+            • <strong>len:</strong> Total packet length (headers + payload)<br>
+            • <strong>headroom/tailroom:</strong> Space for adding headers/trailers<br>
+            • <strong>protocol:</strong> Network layer protocol (0x0800 = IPv4)<br>
+            • <strong>mark/priority:</strong> Packet marking and QoS priority<br>
+            • <strong>csum:</strong> Checksum validation state<br>
+            • <strong>*_off:</strong> Header offsets from skb->head<br><br>
+            
+            <strong>🔌 Socket State:</strong><br>
+            Destination socket information (when packet reaches socket layer):<br>
+            • <strong>type:</strong> Socket type (SOCK_DGRAM for UDP)<br>
+            • <strong>state:</strong> Socket connection state<br>
+            • <strong>rcvbuf:</strong> Receive buffer size<br>
+            • <strong>family:</strong> Address family (AF_INET, AF_INET6)<br><br>
+            
+            <strong>🌐 Network Device:</strong><br>
+            Interface the packet arrived on:<br>
+            • <strong>name:</strong> Interface name (eth0, wlan0, etc.)<br>
+            • <strong>mtu:</strong> Maximum transmission unit<br>
+            • <strong>flags:</strong> Interface flags (UP, RUNNING, etc.)<br><br>
+            
+            <em>Changed values are highlighted in yellow as the packet flows through the stack.</em><br><br>
+            📖 <strong>Learn more:</strong> <a href="https://wiki.linuxfoundation.org/networking/sk_buff" target="_blank" style="color:#3b82f6;">Linux Foundation sk_buff documentation</a><br>
+            📚 <strong>Deep dive:</strong> <a href="https://elixir.bootlin.com/linux/latest/source/include/linux/skbuff.h" target="_blank" style="color:#3b82f6;">sk_buff source code (skbuff.h)</a>
+          </small>
+        </details>
+        
+        <!-- sk_buff subsection -->
+        <div style="margin-top:12px">
+          <strong style="font-size:14px">📦 sk_buff</strong>
+          <div class="kv mono" style="font-size:11px" id="skb-state"></div>
+        </div>
+        
+        <!-- Socket subsection -->
+        <div style="margin-top:12px">
+          <strong style="font-size:14px">🔌 Socket</strong>
+          <div class="kv mono" style="font-size:11px" id="socket-state">
+            <span style="color:#6b7280">No socket data yet...</span>
+          </div>
+        </div>
+        
+        <!-- Network Device subsection -->
+        <div style="margin-top:12px">
+          <strong style="font-size:14px">🌐 Network Device</strong>
+          <div class="kv mono" style="font-size:11px" id="netdev-state">
+            <span style="color:#6b7280">No device data yet...</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs/loader.min.js"></script>
+<script>
+let timeline = [];
+let allSteps = [];
+let currentSteps = [];
+let annotations = {};
+let currentStep = 0;
+let editor;
+let isPlaying = false;
+let currentAnnotation = null;
+let currentFlow = 'rx';
+
+// Flow control elements
+const flowRXBtn = document.getElementById('flowRX');
+const flowDirectionEl = document.getElementById('flow-direction');
+
+// Set kernel version from actual system
+document.getElementById('kernel-version').textContent = '6.11.0-29-generic';
+
+// ---------------- Flow Management ----------------
+function setActiveFlow(flow) {
+  // Only RX flow available
+  flowRXBtn.className = 'btn flow-rx-active';
+  
+  // Always use RX flow since we only have UDP receive data
+  currentSteps = allSteps.timeline.filter(step => step.flow_direction === 'RX') || allSteps.timeline || [];
+  
+  currentFlow = 'rx';
+  
+  // Update timeline and restart
+  timeline = currentSteps;
+  currentStep = 0;
+  if (timeline.length > 0) {
+    showStep(0);
+  }
+}
+
+require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.39.0/min/vs' } });
+
+require(['vs/editor/editor.main'], function() {
+  editor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
+    value: '// Loading kernel source code...',
+    language: 'c',
+    theme: 'vs-light',
+    readOnly: true,
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    automaticLayout: true
+  });
+
+  // Load annotations first
+  fetch('annotation_database.json')
+    .then(r => r.json())
+    .then(data => {
+      annotations = data.annotations; // Educational annotations are nested under 'annotations'
+      console.log('Loaded educational annotations for:', Object.keys(annotations));
+      
+      // Load timeline after annotations - try flow-separated version first
+      return fetch('timeline_annotated.json');
+    })
+    .then(r => r.json())
+    .then(data => {
+      // Handle both new {timeline: [...]} and old [...] formats
+      if (data.timeline) {
+        allSteps = data;  // New format: {timeline: [...], metadata: {...}}
+      } else {
+        allSteps = {timeline: data};  // Old format: convert [...] to {timeline: [...]}
+      }
+      
+      // Check if we have flow-separated data
+      if (allSteps.tx_timeline && allSteps.rx_timeline) {
+        console.log('Flow-separated data available:', {
+          total: allSteps.timeline?.length || 0,
+          tx: allSteps.tx_timeline?.length || 0,
+          rx: allSteps.rx_timeline?.length || 0
+        });
+      } else {
+        console.log('No flow separation in data, using timeline as RX flow');
+        // Fallback for old format - put everything in RX flow
+        allSteps.timeline = data.timeline || data;  // Handle both new {timeline: [...]} and old [...] formats
+        allSteps.tx_timeline = [];
+        allSteps.rx_timeline = data.timeline || data;  // Use all data as RX flow
+      }
+      
+      // Set up flow controls - only RX button since TX was removed
+      flowRXBtn.addEventListener('click', () => setActiveFlow('rx'));
+      
+      // Initialize with RX flow (default)
+      setActiveFlow('rx');
+      
+      updateStepCounter();
+      console.log('Loaded timeline with', allSteps.timeline?.length || 0, 'steps');
+      showStep(0);
+    })
+    .catch(err => {
+      console.error('Error loading data:', err);
+      editor.setValue(`// Error loading timeline or annotations\n// Error: ${err.message}\n// Make sure timeline.json and annotation_database.json exist`);
+    });
+
+  // Enhanced hover provider with annotations
+  monaco.languages.registerHoverProvider('c', {
+    provideHover: function(model, position) {
+      const word = model.getWordAtPosition(position);
+      if (word && annotations[word.word]) {
+        const annotation = annotations[word.word];
+        return {
+          range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+          contents: [
+            { value: `**${annotation.basic.layer}**: ${word.word}()` },
+            { value: annotation.basic.purpose },
+            { value: annotation.explanations.beginner }
+          ]
+        };
+      }
+      return null;
+    }
+  });
+});
+
+function updateStepCounter() {
+  document.getElementById('step-counter').textContent = `${currentStep + 1} / ${timeline.length}`;
+}
+
+function showExplanationTab(level) {
+  // Hide all tabs
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  // Show selected tab
+  event.target.classList.add('active');
+  document.getElementById(`explanation-${level}`).classList.add('active');
+}
+
+function updateFunctionAnnotation(step) {
+  const funcName = step.func;
+  const functionInfo = document.getElementById('function-info');
+  
+  if (annotations[funcName]) {
+    const annotation = annotations[funcName];
+    currentAnnotation = annotation;
+    
+    // Show function info panel
+    functionInfo.classList.add('visible');
+    
+    // Update content - now using educational annotation structure
+    document.getElementById('function-name').textContent = funcName + '()';
+    document.getElementById('function-layer').textContent = annotation.basic.layer;
+    document.getElementById('function-purpose').textContent = annotation.basic.purpose;
+    
+    // Update explanation tabs with educational content
+    document.getElementById('explanation-beginner').textContent = annotation.explanations.beginner;
+    document.getElementById('explanation-intermediate').textContent = annotation.explanations.intermediate;
+    document.getElementById('explanation-advanced').textContent = annotation.explanations.advanced;
+    
+    // Update packet flow information
+    document.getElementById('packet-before').textContent = annotation.packet_flow.packet_state_before;
+    document.getElementById('packet-after').textContent = annotation.packet_flow.packet_state_after;
+    document.getElementById('packet-next').textContent = annotation.packet_flow.next_likely_functions.join(', ');
+    
+    // Ensure beginner tab is selected by default
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+    document.querySelector('.tab').classList.add('active');
+    document.getElementById('explanation-beginner').classList.add('active');
+    
+  } else {
+    // Hide function info panel
+    functionInfo.classList.remove('visible');
+    currentAnnotation = null;
+  }
+}
+
+function addLineAnnotations() {
+  const overlay = document.getElementById('annotation-overlay');
+  overlay.innerHTML = '';
+  
+  if (!currentAnnotation) return;
+  
+  // Add line-by-line annotations for key lines
+  const step = timeline[currentStep];
+  const lineHeight = 19; // Monaco default line height
+  const startLine = step.line || 1;
+  
+  // Clear existing decorations
+  if (window.currentLineDecorations) {
+    window.currentLineDecorations = editor.deltaDecorations(window.currentLineDecorations, []);
+  }
+  
+  // Add Monaco editor line decorations for better highlighting
+  const decorations = [
+    // Main execution line with stronger highlighting
+    {
+      range: new monaco.Range(startLine, 1, startLine, 1),
+      options: {
+        isWholeLine: true,
+        className: 'current-execution-line',
+        glyphMarginClassName: 'current-execution-glyph',
+        minimap: {
+          color: '#f59e0b',
+          position: monaco.editor.MinimapPosition.Inline
+        },
+        overviewRuler: {
+          color: '#f59e0b',
+          position: monaco.editor.OverviewRulerLane.Full
+        }
+      }
+    },
+    // Function boundary highlighting (3 lines above and below)
+    ...Array.from({length: 3}, (_, i) => ({
+      range: new monaco.Range(Math.max(1, startLine - 3 + i), 1, Math.max(1, startLine - 3 + i), 1),
+      options: {
+        isWholeLine: true,
+        className: 'function-boundary-line',
+        glyphMarginClassName: 'function-boundary-glyph'
+      }
+    })),
+    ...Array.from({length: 3}, (_, i) => ({
+      range: new monaco.Range(startLine + 1 + i, 1, startLine + 1 + i, 1),
+      options: {
+        isWholeLine: true,
+        className: 'function-boundary-line',
+        glyphMarginClassName: 'function-boundary-glyph'
+      }
+    }))
+  ];
+  
+  // Highlight function name if found in the code
+  const currentContent = editor.getValue();
+  const functionName = step.func;
+  const functionRegex = new RegExp(`\\b${functionName}\\b`, 'g');
+  let match;
+  while ((match = functionRegex.exec(currentContent)) !== null) {
+    const position = editor.getModel().getPositionAt(match.index);
+    decorations.push({
+      range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column + functionName.length),
+      options: {
+        className: 'function-name-highlight',
+        hoverMessage: { value: `**${functionName}** - Currently executing function` }
+      }
+    });
+  }
+  
+  // Apply decorations
+  window.currentLineDecorations = editor.deltaDecorations([], decorations);
+  
+  // Add annotation badges for important lines
+  const keyLines = [
+    { line: Math.max(1, startLine - 2), text: '📋', color: '#6366f1', tooltip: 'Function entry point' },
+    { line: startLine, text: '⚡', color: '#f59e0b', tooltip: 'Current execution line' },
+    { line: startLine + 3, text: '🔄', color: '#10b981', tooltip: 'Core processing' },
+    { line: startLine + 6, text: '📤', color: '#ef4444', tooltip: 'Function exit/return' }
+  ];
+  
+  keyLines.forEach(({ line, text, color, tooltip }) => {
+    const badge = document.createElement('div');
+    badge.className = 'line-annotation';
+    badge.style.top = `${(line - 1) * lineHeight + 2}px`;
+    badge.style.backgroundColor = color;
+    badge.textContent = text;
+    badge.title = tooltip;
+    
+    badge.onclick = () => {
+      editor.revealLineInCenter(line);
+      editor.setPosition({ lineNumber: line, column: 1 });
+    };
+    
+    overlay.appendChild(badge);
+  });
+}
+
+function showStep(index) {
+  if (index < 0 || index >= timeline.length) return;
+  
+  currentStep = index;
+  const step = timeline[index];
+  
+  // Update combined control panel
+  updateStepCounter();
+  document.getElementById('current-func').textContent = step.func;
+  
+  // Load annotation info first to get correct file path
+  let displayFile, lineToShow;
+  
+  if (annotations[step.func] && annotations[step.func].file) {
+    // Use corrected file path and line from annotation database
+    displayFile = annotations[step.func].file;
+    lineToShow = annotations[step.func].line || 1;
+  } else {
+    // Fallback to timeline data - use line number from timeline if available
+    displayFile = step.file;
+    lineToShow = (step.line !== "TBD" && step.line) ? step.line : 1;
+  }
+  
+  // Update control panel with correct file info
+  document.getElementById('file-path').textContent = displayFile;
+  document.getElementById('step-note').textContent = step.note;
+  
+  // Show flow direction
+  if (step.flow_direction && flowDirectionEl) {
+    const flowColors = {
+      'TX': '#dc2626',
+      'RX': '#059669', 
+      'BRIDGE': '#d97706',
+      'OTHER': '#6b7280'
+    };
+    const color = flowColors[step.flow_direction] || '#6b7280';
+    flowDirectionEl.innerHTML = `<span style="color:${color};font-weight:bold">${step.flow_direction}</span> Flow`;
+  } else if (flowDirectionEl) {
+    flowDirectionEl.textContent = '';
+  }
+  
+  // Update progress bar
+  const progress = ((index + 1) / timeline.length) * 100;
+  document.querySelector('.progress > div').style.width = progress + '%';
+
+  // Update function annotation panel
+  updateFunctionAnnotation(step);
+
+  // Load the source file - use variables already defined above
+  const srcPath = `kernel_src/linux-6.11.y/${displayFile}`;
+  
+  // Update file header above Monaco editor (after displayFile is determined)
+  const fileName = displayFile ? displayFile.split('/').pop() : step.file.split('/').pop(); // Get just the filename
+  const filePath = displayFile || step.file; // Full path
+  document.getElementById('editor-file-name').textContent = fileName;
+  document.getElementById('editor-file-path').textContent = filePath;
+  
+  fetch(srcPath)
+    .then(r => r.text())
+    .then(content => {
+      editor.setValue(content);
+      
+      // Wait for editor to render, then add annotations
+      setTimeout(() => {
+        // Try to find the function in the source code rather than relying on exact line numbers
+        const funcName = step.func;
+        const lines = content.split('\n');
+        let functionLine = lineToShow;
+        
+        // Improved function finding logic - look specifically for function definitions
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+          const prevLine = i > 0 ? lines[i-1].trim() : '';
+          const nextLine = i < lines.length - 1 ? lines[i+1].trim() : '';
+          
+          // Skip comments and preprocessor directives
+          if (line.startsWith('//') || line.startsWith('*') || line.startsWith('/*') || 
+              line.startsWith('#') || prevLine.startsWith('*')) {
+            continue;
+          }
+          
+          // Look for function definition patterns:
+          // 1. Line contains function name followed by opening parenthesis
+          // 2. Must have return type keywords or be a proper function signature
+          // 3. Should have opening brace on same or next line
+          if (line.includes(funcName + '(')) {
+            // Check if this looks like a function definition, not a call
+            const hasReturnType = line.includes('static ') || line.includes('int ') || 
+                                 line.includes('void ') || line.includes('struct ') ||
+                                 line.includes('unsigned ') || line.includes('long ') ||
+                                 prevLine.includes('static ') || prevLine.includes('int ') ||
+                                 prevLine.includes('void ') || prevLine.includes('struct ');
+            
+            // Check for opening brace (function body start)
+            const hasOpenBrace = line.includes('{') || nextLine.includes('{') ||
+                                (i < lines.length - 2 && lines[i+2].trim().includes('{'));
+            
+            // Make sure it's not a function call (like "ret = funcName()")
+            const isNotCall = !line.includes('=') && !line.includes('return ') && 
+                             !line.includes('if ') && !line.includes('while ');
+            
+            if ((hasReturnType || hasOpenBrace) && isNotCall) {
+              functionLine = i + 1;
+              console.log(`Found function definition for ${funcName} at line ${functionLine} (was expecting ${lineToShow})`);
+              break;
+            }
+          }
+        }
+        
+        // If still no function definition found, do a broader search for the function name
+        // but prioritize lines that look like definitions
+        if (functionLine === lineToShow) {
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.includes(funcName) && !line.startsWith('//') && !line.startsWith('*') && 
+                !line.startsWith('#') && !line.includes('=') && !line.includes('return ')) {
+              functionLine = i + 1;
+              console.log(`Found reference to ${funcName} at line ${functionLine}`);
+              break;
+            }
+          }
+        }
+        
+        // Ensure we have a valid line number
+        if (functionLine < 1 || functionLine > lines.length) {
+          functionLine = Math.max(1, Math.min(lineToShow, lines.length));
+        }
+        
+        // Jump to the line with better centering and focus
+        setTimeout(() => {
+          editor.revealLineInCenter(functionLine);
+          editor.setPosition({ lineNumber: functionLine, column: 1 });
+          editor.focus();
+        }, 50);
+        
+        // Add visual annotations
+        addLineAnnotations();
+        
+        // Add a warning if line numbers seem off
+        if (Math.abs(functionLine - lineToShow) > 20) {
+          console.warn(`Line number mismatch for ${funcName}: expected ${lineToShow}, found at ${functionLine}. This may be due to kernel version differences.`);
+        }
+        
+      }, 100);
+    })
+    .catch(err => {
+      editor.setValue(`// Could not load ${displayFile}\n// Error: ${err.message}\n// Using demo content instead\n\n// This would show the actual kernel source for ${step.func}()\n// at approximately line ${lineToShow}\n\nstatic int ${step.func}(struct sk_buff *skb)\n{\n    /* ${step.note} */\n    \n    // Kernel source code would be here\n    // showing the actual implementation\n    \n    return 0;\n}`);
+      
+      setTimeout(() => {
+        addLineAnnotations();
+      }, 100);
+    });
+
+  // Update call stack with better styling (newest first) - moved outside fetch chain
+  const stackDiv = document.getElementById('stack');
+  console.log('Updating call stack for step:', step.func, 'stack:', step.stack);
+  
+  if (step.stack && Array.isArray(step.stack)) {
+    const reversedStack = [...step.stack].reverse(); // Reverse to show current function on top
+    stackDiv.innerHTML = reversedStack.map(func => {
+      const hasAnnotation = annotations[func];
+      const isCurrent = func === step.func;
+      const classes = ['stack-function'];
+      if (isCurrent) classes.push('current');
+      if (hasAnnotation) classes.push('annotated');
+      
+      return `<div class="${classes.join(' ')}">${func}</div>`;
+    }).join('');
+    console.log('Call stack updated with', reversedStack.length, 'functions');
+  } else {
+    stackDiv.innerHTML = `<div class="stack-function current">${step.func}</div>`;
+    console.log('Call stack updated with single function:', step.func);
+  }
+
+  // Update sk_buff state
+  const skbDiv = document.getElementById('skb-state');
+  const skb = step.skb;
+  const prevSkb = timeline[Math.max(0, index-1)]?.skb;
+  
+  skbDiv.innerHTML = `
+    <span>len:</span><span class="${skb.len !== prevSkb?.len ? 'chg' : ''}">${skb.len}</span>
+    <span>headroom:</span><span class="${skb.headroom !== prevSkb?.headroom ? 'chg' : ''}">${skb.headroom}</span>
+    <span>tailroom:</span><span class="${skb.tailroom !== prevSkb?.tailroom ? 'chg' : ''}">${skb.tailroom}</span>
+    <span>data_len:</span><span class="${skb.data_len !== prevSkb?.data_len ? 'chg' : ''}">${skb.data_len}</span>
+    <span>protocol:</span><span class="${skb.protocol !== prevSkb?.protocol ? 'chg' : ''}">0x${skb.protocol.toString(16).padStart(4,'0')}</span>
+    <span>mark:</span><span class="${skb.mark !== prevSkb?.mark ? 'chg' : ''}">${skb.mark}</span>
+    <span>priority:</span><span class="${skb.priority !== prevSkb?.priority ? 'chg' : ''}">${skb.priority}</span>
+    <span>truesize:</span><span class="${skb.truesize !== prevSkb?.truesize ? 'chg' : ''}">${skb.truesize}</span>
+    <span>csum:</span><span class="${skb.csum_state !== prevSkb?.csum_state ? 'chg' : ''}">${skb.csum_state}</span>
+    <span>mac_off:</span><span class="${skb.mac_header_off !== prevSkb?.mac_header_off ? 'chg' : ''}">${skb.mac_header_off}</span>
+    <span>net_off:</span><span class="${skb.network_header_off !== prevSkb?.network_header_off ? 'chg' : ''}">${skb.network_header_off}</span>
+    <span>trans_off:</span><span class="${skb.transport_header_off !== prevSkb?.transport_header_off ? 'chg' : ''}">${skb.transport_header_off}</span>
+  `;
+
+  // Update socket state (appears when we reach socket layer)
+  const socketDiv = document.getElementById('socket-state');
+  if (step.func.includes('udp_') || step.func.includes('sock_') || step.func.includes('socket')) {
+    // Mock socket data for demonstration - in real implementation this would come from tracing
+    const socketData = {
+      type: 'SOCK_DGRAM',
+      state: 'ESTABLISHED', 
+      family: 'AF_INET',
+      rcvbuf: 212992,
+      local_port: 10001,
+      peer_addr: '192.168.1.100:10000'
+    };
+    
+    socketDiv.innerHTML = `
+      <span>type:</span><span>${socketData.type}</span>
+      <span>state:</span><span>${socketData.state}</span>
+      <span>family:</span><span>${socketData.family}</span>
+      <span>rcvbuf:</span><span>${socketData.rcvbuf}</span>
+      <span>local_port:</span><span>${socketData.local_port}</span>
+      <span>peer:</span><span>${socketData.peer_addr}</span>
+    `;
+  } else {
+    socketDiv.innerHTML = '<span style="color:#6b7280">Socket layer not yet reached...</span>';
+  }
+
+  // Update network device state
+  const netdevDiv = document.getElementById('netdev-state');
+  // Mock network device data - in real implementation this would come from tracing
+  const netdevData = {
+    name: 'eth0',
+    mtu: 1500,
+    flags: 'UP|RUNNING|MULTICAST',
+    rx_packets: 12847,
+    tx_packets: 8934
+  };
+  
+  netdevDiv.innerHTML = `
+    <span>name:</span><span>${netdevData.name}</span>
+    <span>mtu:</span><span>${netdevData.mtu}</span>
+    <span>flags:</span><span>${netdevData.flags}</span>
+    <span>rx_pkts:</span><span>${netdevData.rx_packets}</span>
+    <span>tx_pkts:</span><span>${netdevData.tx_packets}</span>
+  `;
+
+  renderPacketVisualization(skb);
+}
+
+function renderPacketVisualization(skb) {
+  const svg = document.getElementById('packet-viz');
+  const totalBytes = 66;
+  
+  svg.innerHTML = '';
+  
+  // Color scheme for different packet sections
+  const colors = {
+    mac: '#e2e8f0',      // Light gray for MAC header
+    ip: '#fde68a',       // Light yellow for IP header
+    l4: '#86efac',       // Light green for UDP header
+    payload: '#c7d2fe'   // Light purple for payload
+  };
+  
+  // Sample UDP packet data (reconstructed for demo)
+  const packetData = [
+    // MAC Header (14 bytes)
+    0x00, 0x50, 0x56, 0xc0, 0x00, 0x08,  // Destination MAC
+    0x00, 0x0c, 0x29, 0x12, 0x34, 0x56,  // Source MAC  
+    0x08, 0x00,                          // EtherType (IPv4)
+    
+    // IP Header (20 bytes)
+    0x45, 0x00, 0x00, 0x34,              // Version, IHL, ToS, Total Length
+    0x12, 0x34, 0x40, 0x00,              // ID, Flags, Fragment Offset
+    0x40, 0x11, 0x26, 0x75,              // TTL, Protocol (UDP=17), Checksum
+    0xc0, 0xa8, 0x01, 0x64,              // Source IP (192.168.1.100)
+    0xc0, 0xa8, 0x01, 0x65,              // Destination IP (192.168.1.101)
+    
+    // UDP Header (8 bytes)
+    0x27, 0x10,                          // Source Port (10000)
+    0x27, 0x11,                          // Destination Port (10001) 
+    0x00, 0x18,                          // UDP Length (24 bytes)
+    0x00, 0x00,                          // UDP Checksum
+    
+    // Payload (24 bytes) - "test message for demo"
+    0x74, 0x65, 0x73, 0x74, 0x20, 0x6d,  // "test m"
+    0x65, 0x73, 0x73, 0x61, 0x67, 0x65,  // "essage"
+    0x20, 0x66, 0x6f, 0x72, 0x20, 0x64,  // " for d"
+    0x65, 0x6d, 0x6f, 0x21, 0x00, 0x00   // "emo!" + padding
+  ];
+  
+  // Helper functions to get logical values
+  function getMacAddress(startIndex) {
+    return packetData.slice(startIndex, startIndex + 6)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join(':').toUpperCase();
+  }
+  
+  function getIpAddress(startIndex) {
+    return packetData.slice(startIndex, startIndex + 4)
+      .map(b => b.toString(10))
+      .join('.');
+  }
+  
+  function getPort(startIndex) {
+    return (packetData[startIndex] << 8) | packetData[startIndex + 1];
+  }
+  
+  // Create rows for better readability - group bytes in rows of 16
+  const bytesPerRow = Math.min(16, Math.floor(440 / 30)); // At least 30px per byte for readability
+  const actualBytesPerRow = Math.min(bytesPerRow, totalBytes);
+  const boxWidth = 440 / actualBytesPerRow;
+  const boxHeight = 35;
+  const rowHeight = 40;
+  const totalRows = Math.ceil(totalBytes / actualBytesPerRow);
+  const svgHeight = 20 + totalRows * rowHeight;
+  
+  svg.setAttribute('viewBox', `0 0 440 ${svgHeight}`);
+  svg.setAttribute('width', '440');
+  svg.setAttribute('height', svgHeight.toString());
+  
+  for (let i = 0; i < totalBytes; i++) {
+    const row = Math.floor(i / actualBytesPerRow);
+    const col = i % actualBytesPerRow;
+    
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', col * boxWidth);
+    rect.setAttribute('y', 10 + row * rowHeight);
+    rect.setAttribute('width', boxWidth - 1);
+    rect.setAttribute('height', boxHeight);
+    rect.setAttribute('stroke', '#374151');
+    rect.setAttribute('stroke-width', '1');
+    
+    // Determine section and set fill color
+    let sectionType = '';
+    let fillColor = '';
+    if (i < 14) {
+      sectionType = 'mac';
+      fillColor = colors.mac;
+    } else if (i < 34) {
+      sectionType = 'ip'; 
+      fillColor = colors.ip;
+    } else if (i < 42) {
+      sectionType = 'l4';
+      fillColor = colors.l4;
+    } else {
+      sectionType = 'payload';
+      fillColor = colors.payload;
+    }
+    
+    rect.setAttribute('fill', fillColor);
+    rect.setAttribute('class', `packet-byte ${sectionType}`);
+    svg.appendChild(rect);
+    
+    // Add byte value text with larger, more readable font
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', col * boxWidth + boxWidth/2);
+    text.setAttribute('y', 10 + row * rowHeight + boxHeight/2);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('font-family', 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace');
+    text.setAttribute('font-size', '11px');
+    text.setAttribute('font-weight', 'bold');
+    text.setAttribute('fill', '#1f2937');
+    text.setAttribute('pointer-events', 'none');
+    
+    const byteValue = packetData[i] || 0;
+    text.textContent = byteValue.toString(16).padStart(2, '0').toUpperCase();
+    svg.appendChild(text);
+    
+    // Add byte index number below the hex value
+    const indexText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    indexText.setAttribute('x', col * boxWidth + boxWidth/2);
+    indexText.setAttribute('y', 10 + row * rowHeight + boxHeight - 6);
+    indexText.setAttribute('text-anchor', 'middle');
+    indexText.setAttribute('font-family', 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace');
+    indexText.setAttribute('font-size', '7px');
+    indexText.setAttribute('fill', '#6b7280');
+    indexText.setAttribute('pointer-events', 'none');
+    indexText.textContent = i.toString();
+    svg.appendChild(indexText);
+    
+    // Add tooltip with detailed info including logical values
+    rect.addEventListener('mouseenter', function(e) {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'custom-tooltip';
+      
+      let sectionName = '';
+      let fieldDescription = '';
+      let logicalValue = '';
+      const byteValue = packetData[i] || 0;
+      
+      if (sectionType === 'mac') {
+        sectionName = 'MAC Header';
+        if (i < 6) {
+          fieldDescription = 'Destination MAC';
+          logicalValue = getMacAddress(0);
+        } else if (i < 12) {
+          fieldDescription = 'Source MAC';
+          logicalValue = getMacAddress(6);
+        } else {
+          fieldDescription = 'EtherType';
+          logicalValue = '0x0800 (IPv4)';
+        }
+      } else if (sectionType === 'ip') {
+        sectionName = 'IP Header';
+        const ipOffset = i - 14;
+        if (ipOffset < 4) {
+          fieldDescription = 'Version/IHL/ToS/Length';
+          if (ipOffset === 0) logicalValue = 'IPv4, IHL=5';
+          else if (ipOffset === 1) logicalValue = 'ToS=0';
+          else logicalValue = 'Total Length=52 bytes';
+        } else if (ipOffset < 8) {
+          fieldDescription = 'ID/Flags/Fragment';
+          logicalValue = 'ID=0x1234, Don\'t Fragment';
+        } else if (ipOffset < 12) {
+          fieldDescription = 'TTL/Protocol/Checksum';
+          if (ipOffset === 8) logicalValue = 'TTL=64';
+          else if (ipOffset === 9) logicalValue = 'UDP (17)';
+          else logicalValue = 'Checksum=0x2675';
+        } else if (ipOffset < 16) {
+          fieldDescription = 'Source IP';
+          logicalValue = getIpAddress(26);
+        } else {
+          fieldDescription = 'Destination IP';
+          logicalValue = getIpAddress(30);
+        }
+      } else if (sectionType === 'l4') {
+        sectionName = 'UDP Header';
+        const udpOffset = i - 34;
+        if (udpOffset < 2) {
+          fieldDescription = 'Source Port';
+          logicalValue = getPort(34).toString();
+        } else if (udpOffset < 4) {
+          fieldDescription = 'Destination Port';
+          logicalValue = getPort(36).toString();
+        } else if (udpOffset < 6) {
+          fieldDescription = 'UDP Length';
+          logicalValue = '24 bytes';
+        } else {
+          fieldDescription = 'UDP Checksum';
+          logicalValue = '0x0000 (disabled)';
+        }
+      } else {
+        sectionName = 'Payload';
+        fieldDescription = 'Application Data';
+        // Try to show ASCII if printable
+        if (byteValue >= 32 && byteValue <= 126) {
+          logicalValue = `'${String.fromCharCode(byteValue)}'`;
+        } else {
+          logicalValue = 'Non-printable';
+        }
+      }
+      
+      tooltip.innerHTML = `
+        <strong>Byte ${i}</strong><br>
+        ${sectionName}: ${fieldDescription}<br>
+        Value: 0x${byteValue.toString(16).padStart(2, '0').toUpperCase()} (${byteValue})<br>
+        ${logicalValue ? `<strong>Logical Value:</strong> ${logicalValue}` : ''}
+      `;
+      tooltip.style.left = (e.clientX - 60) + 'px';
+      tooltip.style.top = (e.clientY - 80) + 'px';
+      document.body.appendChild(tooltip);
+      
+      rect.tooltip = tooltip;
+    });
+    
+    rect.addEventListener('mouseleave', function() {
+      if (rect.tooltip) {
+        document.body.removeChild(rect.tooltip);
+        rect.tooltip = null;
+      }
+    });
+  }
+}
+
+function nextStep() {
+  if (currentStep < timeline.length - 1) {
+    showStep(currentStep + 1);
+  }
+}
+
+function prevStep() {
+  if (currentStep > 0) {
+    showStep(currentStep - 1);
+  }
+}
+
+function playAnimation() {
+  if (isPlaying) return;
+  isPlaying = true;
+  
+  // Update button states
+  document.getElementById('play-btn').style.opacity = '0.5';
+  document.getElementById('pause-btn').style.opacity = '1';
+  
+  const interval = setInterval(() => {
+    if (currentStep < timeline.length - 1) {
+      nextStep();
+    } else {
+      clearInterval(interval);
+      pauseAnimation();
+    }
+  }, 2000);
+  
+  // Store interval for pause
+  window.animationInterval = interval;
+}
+
+function pauseAnimation() {
+  if (window.animationInterval) {
+    clearInterval(window.animationInterval);
+  }
+  isPlaying = false;
+  
+  // Update button states
+  document.getElementById('play-btn').style.opacity = '1';
+  document.getElementById('pause-btn').style.opacity = '0.5';
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight') nextStep();
+  if (e.key === 'ArrowLeft') prevStep();
+  if (e.key === ' ') {
+    e.preventDefault();
+    if (isPlaying) pauseAnimation();
+    else playAnimation();
+  }
+});
+
+// Limitations Modal Functions
+function showLimitationsModal() {
+  const modal = document.getElementById('limitationsModal');
+  modal.style.display = 'flex';
+}
+
+function closeLimitationsModal() {
+  const modal = document.getElementById('limitationsModal');
+  modal.style.display = 'none';
+}
+
+</script>
+
+<!-- Limitations Modal -->
+<div id="limitationsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+  <div style="background: white; padding: 24px; border-radius: 8px; max-width: 500px; margin: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+    <h3 style="margin: 0 0 16px 0; color: #dc2626;">⚠️ System Limitations</h3>
+    <p style="margin: 0 0 12px 0; line-height: 1.5;">This visualization was captured on <strong>Ubuntu</strong> and may not perfectly represent other distributions:</p>
+    <ul style="margin: 0 0 16px 0; padding-left: 20px; line-height: 1.5;">
+      <li>Function call orders may vary between distributions</li>
+      <li>Some optimization differences in kernel builds</li>
+      <li>Line numbers may not match exactly on different systems</li>
+      <li>Best viewed as educational reference, not absolute truth</li>
+    </ul>
+    <button onclick="closeLimitationsModal()" style="background: #059669; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">Got it</button>
+  </div>
+</div>
+
+</body>
+</html>

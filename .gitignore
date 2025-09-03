@@ -1,3 +1,23 @@
+# Build artifacts and generated files
+build/
+timeline.json
+timeline_annotated.json
+annotation_database.json
+
+# Generated annotation directories (timestamped directories from annotate.sh)
+annotations_*/
+
+# Downloaded kernel source (large and can be re-downloaded)
+kernel_src/
+
+# Debug and temporary files
+debug/*.txt
+debug/network_trace_*
+debug/kernel_trace_*
+
+# Temporary trace files
+/tmp/network_trace_*
+
 # Operating System Files
 .DS_Store
 Thumbs.db
