@@ -513,20 +513,7 @@ function addLineAnnotations() {
   // Add line-by-line annotations for key lines
   const step = timeline[currentStep];
   const lineHeight = 19; // Monaco default line height
-  
-  // Use the actual found function line from findFunctionInCode, not timeline line
-  // This ensures annotation highlighting aligns with Monaco editor navigation
-  let startLine = step.line || 1;
-  
-  // Try to find the actual function definition line to align annotations properly
-  const editorContent = editor.getValue();
-  const targetFunction = step.func;
-  const actualFunctionLine = findFunctionInCode(editorContent, targetFunction);
-  
-  if (actualFunctionLine > 0) {
-    startLine = actualFunctionLine;
-    console.log(`Using actual function line ${startLine} instead of timeline line ${step.line} for ${targetFunction}`);
-  }
+  const startLine = step.line || 1;
   
   // Clear existing decorations
   if (window.currentLineDecorations) {
@@ -861,81 +848,81 @@ function updateSkbMemoryBar(skb) {
   const memoryBar = document.getElementById('skb-memory-bar');
   if (!memoryBar || !skb) return;
   
-  // Calculate segment sizes
-  const headroom = skb.headroom || 0;
-  const macLen = skb.mac_len || 0;
-  const ipLen = skb.ip_len || 0;
-  const l4Len = skb.l4_len || 0;
-  const payloadLen = skb.payload_len || 0;
-  const tailroom = skb.tailroom || 0;
+  // Calculate segment sizes - ensure they are numbers
+  const headroom = parseInt(skb.headroom) || 0;
+  const macLen = parseInt(skb.mac_len) || 0;
+  const ipLen = parseInt(skb.ip_len) || 0;
+  const l4Len = parseInt(skb.l4_len) || 0;
+  const payloadLen = parseInt(skb.payload_len) || 0;
+  const tailroom = parseInt(skb.tailroom) || 0;
   
-  // Determine consumed headers based on headroom
-  const macConsumed = headroom >= 14;
-  const ipConsumed = headroom >= 34;
-  const udpConsumed = headroom >= 42;
+  console.log('updateSkbMemoryBar:', { headroom, macLen, ipLen, l4Len, payloadLen, tailroom });
   
-  // Create segments with beautiful colors
+  // Headers are consumed/eaten when headroom increases
+  // Show them fading out or disappearing entirely as they get consumed
+  const macConsumed = headroom >= 14;    // MAC header eaten
+  const ipConsumed = headroom >= 34;     // IP header eaten (14+20)  
+  const udpConsumed = headroom >= 42;    // UDP header eaten (14+20+8)
+  
+  // Create segments - consumed headers become invisible/transparent
   const segments = [];
   
-  // Calculate actual packet data size (everything except tailroom)
-  const packetDataSize = headroom + macLen + ipLen + l4Len + payloadLen;
-  
-  if (headroom > 0) {
-    segments.push({ 
-      name: 'Headroom', 
-      size: headroom, 
-      visualSize: headroom,
-      color: '#374151', // Dark grey
-      textColor: 'white',
-      description: 'Consumed headers'
-    });
-  }
+  // MAC header - fades out when consumed
   if (macLen > 0) {
     segments.push({ 
       name: 'MAC', 
       size: macLen, 
-      visualSize: macLen,
-      color: '#e2e8f0', // Light grey
-      textColor: '#374151',
+      visualSize: macConsumed ? 0 : macLen, // Disappears when consumed
+      color: macConsumed ? 'transparent' : '#e2e8f0', 
+      textColor: macConsumed ? 'transparent' : '#374151',
       consumed: macConsumed,
-      description: 'Ethernet header (14B)'
+      description: macConsumed ? 'MAC header consumed by kernel' : 'Ethernet header (14B)'
     });
   }
+  
+  // IP header - fades out when consumed
   if (ipLen > 0) {
     segments.push({ 
       name: 'IP', 
       size: ipLen, 
-      visualSize: ipLen,
-      color: '#10b981', // Green
-      textColor: 'white',
+      visualSize: ipConsumed ? 0 : ipLen, // Disappears when consumed
+      color: ipConsumed ? 'transparent' : '#10b981', 
+      textColor: ipConsumed ? 'transparent' : 'white',
       consumed: ipConsumed,
-      description: 'IPv4 header (20B)'
+      description: ipConsumed ? 'IP header consumed by kernel' : 'IPv4 header (20B)'
     });
   }
+  
+  // UDP header - fades out when consumed
   if (l4Len > 0) {
     segments.push({ 
       name: 'UDP', 
       size: l4Len, 
-      visualSize: l4Len,
-      color: '#f59e0b', // Orange
-      textColor: 'white',
+      visualSize: udpConsumed ? 0 : l4Len, // Disappears when consumed
+      color: udpConsumed ? 'transparent' : '#f59e0b', 
+      textColor: udpConsumed ? 'transparent' : 'white',
       consumed: udpConsumed,
-      description: 'UDP header (8B)'
+      description: udpConsumed ? 'UDP header consumed by kernel' : 'UDP header (8B)'
     });
   }
+  
+  // Payload data - never consumed, always visible
   if (payloadLen > 0) {
     segments.push({ 
       name: 'Data', 
       size: payloadLen, 
       visualSize: payloadLen,
-      color: '#ef4444', // Red
+      color: '#ef4444', // Always red - never consumed
       textColor: 'white',
+      consumed: false,
       description: `Application data (${payloadLen}B)`
     });
   }
+  
+  // Tailroom - available space for adding trailers
   if (tailroom > 0) {
-    // Cap tailroom visual size to max 50% of packet data size
-    const maxTailroomVisual = Math.max(packetDataSize * 0.5, 20); // At least 20px wide
+    const activeDataSize = payloadLen + (macConsumed ? 0 : macLen) + (ipConsumed ? 0 : ipLen) + (udpConsumed ? 0 : l4Len);
+    const maxTailroomVisual = Math.max(activeDataSize * 0.5, 20); // Cap at 50% of active data
     const tailroomVisual = Math.min(tailroom, maxTailroomVisual);
     
     segments.push({ 
@@ -949,11 +936,30 @@ function updateSkbMemoryBar(skb) {
     });
   }
   
-  const totalVisualSize = segments.reduce((sum, seg) => sum + seg.visualSize, 0);
+  // Show consumed bytes indicator
+  const consumedBytes = headroom;
+  const totalVisibleSize = segments.filter(s => s.visualSize > 0).reduce((sum, seg) => sum + seg.visualSize, 0);
   
   // Clear and rebuild
   memoryBar.innerHTML = '';
   
+  // Add consumed bytes indicator if any headers were eaten
+  if (consumedBytes > 0) {
+    const indicator = document.createElement('div');
+    indicator.style.cssText = `
+      position: absolute; 
+      top: -18px; 
+      left: 0; 
+      font-size: 10px; 
+      color: #dc2626; 
+      font-weight: 500;
+      font-style: italic;
+    `;
+    indicator.textContent = `↑ ${consumedBytes} bytes consumed/eaten by kernel`;
+    memoryBar.appendChild(indicator);
+  }
+  
+  let currentPos = 0;
   segments.forEach(segment => {
     if (segment.visualSize > 0) {
       const segmentEl = document.createElement('div');
