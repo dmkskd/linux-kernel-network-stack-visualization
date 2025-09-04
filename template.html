@@ -559,6 +559,8 @@ function addLineAnnotations() {
   ];
   
   // Highlight function name if found in the code
+  const targetFunction = step.func;
+  const editorContent = editor.getValue();
   const funcRegex = new RegExp(`\\b${targetFunction}\\b`, 'g');
   let match;
   while ((match = funcRegex.exec(editorContent)) !== null) {
