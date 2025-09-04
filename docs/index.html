@@ -302,6 +302,14 @@
         <div style="margin-top:12px">
           <strong style="font-size:14px">📦 sk_buff</strong>
           <div class="kv mono" style="font-size:11px" id="skb-state"></div>
+          <!-- sk_buff memory layout visualization -->
+          <div style="margin-top:8px">
+            <div style="font-size:12px;color:#374151;margin-bottom:4px;font-weight:500">📊 Memory Layout:</div>
+            <div id="skb-memory-bar" style="display:flex;height:32px;border:1px solid #d1d5db;border-radius:6px;overflow:hidden;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;box-shadow:0 1px 3px rgba(0,0,0,0.1)">
+              <!-- Dynamic segments will be rendered here -->
+            </div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px;text-align:center">Headroom grows as headers are consumed during processing</div>
+          </div>
         </div>
         
         <!-- Socket subsection -->
@@ -505,7 +513,20 @@ function addLineAnnotations() {
   // Add line-by-line annotations for key lines
   const step = timeline[currentStep];
   const lineHeight = 19; // Monaco default line height
-  const startLine = step.line || 1;
+  
+  // Use the actual found function line from findFunctionInCode, not timeline line
+  // This ensures annotation highlighting aligns with Monaco editor navigation
+  let startLine = step.line || 1;
+  
+  // Try to find the actual function definition line to align annotations properly
+  const editorContent = editor.getValue();
+  const targetFunction = step.func;
+  const actualFunctionLine = findFunctionInCode(editorContent, targetFunction);
+  
+  if (actualFunctionLine > 0) {
+    startLine = actualFunctionLine;
+    console.log(`Using actual function line ${startLine} instead of timeline line ${step.line} for ${targetFunction}`);
+  }
   
   // Clear existing decorations
   if (window.currentLineDecorations) {
@@ -551,17 +572,15 @@ function addLineAnnotations() {
   ];
   
   // Highlight function name if found in the code
-  const currentContent = editor.getValue();
-  const functionName = step.func;
-  const functionRegex = new RegExp(`\\b${functionName}\\b`, 'g');
+  const funcRegex = new RegExp(`\\b${targetFunction}\\b`, 'g');
   let match;
-  while ((match = functionRegex.exec(currentContent)) !== null) {
+  while ((match = funcRegex.exec(editorContent)) !== null) {
     const position = editor.getModel().getPositionAt(match.index);
     decorations.push({
-      range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column + functionName.length),
+      range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column + targetFunction.length),
       options: {
         className: 'function-name-highlight',
-        hoverMessage: { value: `**${functionName}** - Currently executing function` }
+        hoverMessage: { value: `**${targetFunction}** - Currently executing function` }
       }
     });
   }
@@ -675,29 +694,29 @@ function showStep(index) {
             continue;
           }
           
-          // Look for function definition patterns:
-          // 1. Line contains function name followed by opening parenthesis
-          // 2. Must have return type keywords or be a proper function signature
-          // 3. Should have opening brace on same or next line
-          if (line.includes(funcName + '(')) {
+          // Look for EXACT function definition patterns using word boundaries
+          // This prevents matching "udp_rcv_struct" when looking for "udp_rcv"
+          const funcPattern = new RegExp(`\\b${funcName}\\s*\\(`);
+          if (funcPattern.test(line)) {
             // Check if this looks like a function definition, not a call
-            const hasReturnType = line.includes('static ') || line.includes('int ') || 
-                                 line.includes('void ') || line.includes('struct ') ||
-                                 line.includes('unsigned ') || line.includes('long ') ||
-                                 prevLine.includes('static ') || prevLine.includes('int ') ||
-                                 prevLine.includes('void ') || prevLine.includes('struct ');
+            const hasReturnType = /\b(static|int|void|struct|unsigned|long|bool|size_t)\s/.test(prevLine + ' ' + line);
             
             // Check for opening brace (function body start)
             const hasOpenBrace = line.includes('{') || nextLine.includes('{') ||
-                                (i < lines.length - 2 && lines[i+2].trim().includes('{'));
+                                (i < lines.length - 2 && lines[i+2].trim().startsWith('{'));
             
-            // Make sure it's not a function call (like "ret = funcName()")
+            // Make sure it's not a function call, struct member, or typedef
             const isNotCall = !line.includes('=') && !line.includes('return ') && 
-                             !line.includes('if ') && !line.includes('while ');
+                             !line.includes('if (') && !line.includes('while (') &&
+                             !line.includes('->') && !line.includes('.') &&
+                             !prevLine.includes('typedef') && !prevLine.includes('struct');
             
-            if ((hasReturnType || hasOpenBrace) && isNotCall) {
+            // Prioritize exact matches at word boundaries
+            const isExactMatch = new RegExp(`^\\s*(static\\s+)?\\w*\\s*\\b${funcName}\\s*\\(`).test(line);
+            
+            if ((hasReturnType || hasOpenBrace) && isNotCall && isExactMatch) {
               functionLine = i + 1;
-              console.log(`Found function definition for ${funcName} at line ${functionLine} (was expecting ${lineToShow})`);
+              console.log(`Found exact function definition for ${funcName} at line ${functionLine} (was expecting ${lineToShow})`);
               break;
             }
           }
@@ -788,6 +807,9 @@ function showStep(index) {
     <span>trans_off:</span><span class="${skb.transport_header_off !== prevSkb?.transport_header_off ? 'chg' : ''}">${skb.transport_header_off}</span>
   `;
 
+  // Update compact sk_buff memory layout bar
+  updateSkbMemoryBar(skb);
+
   // Update socket state (appears when we reach socket layer)
   const socketDiv = document.getElementById('socket-state');
   if (step.func.includes('udp_') || step.func.includes('sock_') || step.func.includes('socket')) {
@@ -835,18 +857,168 @@ function showStep(index) {
   renderPacketVisualization(skb);
 }
 
+function updateSkbMemoryBar(skb) {
+  const memoryBar = document.getElementById('skb-memory-bar');
+  if (!memoryBar || !skb) return;
+  
+  // Calculate segment sizes
+  const headroom = skb.headroom || 0;
+  const macLen = skb.mac_len || 0;
+  const ipLen = skb.ip_len || 0;
+  const l4Len = skb.l4_len || 0;
+  const payloadLen = skb.payload_len || 0;
+  const tailroom = skb.tailroom || 0;
+  
+  // Determine consumed headers based on headroom
+  const macConsumed = headroom >= 14;
+  const ipConsumed = headroom >= 34;
+  const udpConsumed = headroom >= 42;
+  
+  // Create segments with beautiful colors
+  const segments = [];
+  
+  // Calculate actual packet data size (everything except tailroom)
+  const packetDataSize = headroom + macLen + ipLen + l4Len + payloadLen;
+  
+  if (headroom > 0) {
+    segments.push({ 
+      name: 'Headroom', 
+      size: headroom, 
+      visualSize: headroom,
+      color: '#374151', // Dark grey
+      textColor: 'white',
+      description: 'Consumed headers'
+    });
+  }
+  if (macLen > 0) {
+    segments.push({ 
+      name: 'MAC', 
+      size: macLen, 
+      visualSize: macLen,
+      color: '#e2e8f0', // Light grey
+      textColor: '#374151',
+      consumed: macConsumed,
+      description: 'Ethernet header (14B)'
+    });
+  }
+  if (ipLen > 0) {
+    segments.push({ 
+      name: 'IP', 
+      size: ipLen, 
+      visualSize: ipLen,
+      color: '#10b981', // Green
+      textColor: 'white',
+      consumed: ipConsumed,
+      description: 'IPv4 header (20B)'
+    });
+  }
+  if (l4Len > 0) {
+    segments.push({ 
+      name: 'UDP', 
+      size: l4Len, 
+      visualSize: l4Len,
+      color: '#f59e0b', // Orange
+      textColor: 'white',
+      consumed: udpConsumed,
+      description: 'UDP header (8B)'
+    });
+  }
+  if (payloadLen > 0) {
+    segments.push({ 
+      name: 'Data', 
+      size: payloadLen, 
+      visualSize: payloadLen,
+      color: '#ef4444', // Red
+      textColor: 'white',
+      description: `Application data (${payloadLen}B)`
+    });
+  }
+  if (tailroom > 0) {
+    // Cap tailroom visual size to max 50% of packet data size
+    const maxTailroomVisual = Math.max(packetDataSize * 0.5, 20); // At least 20px wide
+    const tailroomVisual = Math.min(tailroom, maxTailroomVisual);
+    
+    segments.push({ 
+      name: 'Tailroom', 
+      size: tailroom,
+      visualSize: tailroomVisual,
+      color: '#e5e7eb', 
+      textColor: '#6b7280',
+      description: `Available space (${tailroom}B)`,
+      capped: tailroom > maxTailroomVisual
+    });
+  }
+  
+  const totalVisualSize = segments.reduce((sum, seg) => sum + seg.visualSize, 0);
+  
+  // Clear and rebuild
+  memoryBar.innerHTML = '';
+  
+  segments.forEach(segment => {
+    if (segment.visualSize > 0) {
+      const segmentEl = document.createElement('div');
+      segmentEl.style.flex = `${segment.visualSize}`;
+      segmentEl.style.backgroundColor = segment.color;
+      segmentEl.style.color = segment.textColor;
+      segmentEl.style.display = 'flex';
+      segmentEl.style.alignItems = 'center';
+      segmentEl.style.justifyContent = 'center';
+      segmentEl.style.fontSize = '10px';
+      segmentEl.style.fontWeight = '600';
+      segmentEl.style.position = 'relative';
+      segmentEl.style.borderRight = '1px solid rgba(255,255,255,0.2)';
+      segmentEl.style.transition = 'all 0.3s ease';
+      
+      // Show segment name and actual size (not visual size)
+      segmentEl.textContent = `${segment.name} (${segment.size}B)`;
+      
+      // Enhanced tooltip with visual capping info
+      let tooltip = `${segment.name}: ${segment.size} bytes - ${segment.description}`;
+      if (segment.consumed) tooltip += ' [CONSUMED]';
+      if (segment.capped) tooltip += ` [Visual: ${segment.visualSize}B for readability]`;
+      
+      segmentEl.title = tooltip;
+      
+      // Add strikethrough effect for consumed headers with diagonal line
+      if (segment.consumed) {
+        segmentEl.style.position = 'relative';
+        segmentEl.style.opacity = '0.7';
+        
+        // Add diagonal strikethrough using pseudo-element effect
+        const strikeEl = document.createElement('div');
+        strikeEl.style.position = 'absolute';
+        strikeEl.style.top = '0';
+        strikeEl.style.left = '0';
+        strikeEl.style.right = '0';
+        strikeEl.style.bottom = '0';
+        strikeEl.style.background = 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(220,38,38,0.8) 3px, rgba(220,38,38,0.8) 5px)';
+        strikeEl.style.pointerEvents = 'none';
+        segmentEl.appendChild(strikeEl);
+      }
+      
+      memoryBar.appendChild(segmentEl);
+    }
+  });
+}
+
 function renderPacketVisualization(skb) {
   const svg = document.getElementById('packet-viz');
   const totalBytes = 66;
   
   svg.innerHTML = '';
   
-  // Color scheme for different packet sections
+  // Determine which headers are consumed based on headroom
+  const headroom = skb?.headroom || 0;
+  const macConsumed = headroom >= 14;   // MAC header consumed (moved to headroom)
+  const ipConsumed = headroom >= 34;    // IP header consumed (MAC + IP)
+  const udpConsumed = headroom >= 42;   // UDP header consumed (MAC + IP + UDP)
+  
+  // Color scheme for different packet sections - keep original colors always
   const colors = {
-    mac: '#e2e8f0',      // Light gray for MAC header
-    ip: '#fde68a',       // Light yellow for IP header
-    l4: '#86efac',       // Light green for UDP header
-    payload: '#c7d2fe'   // Light purple for payload
+    mac: '#e2e8f0',      // Light gray for MAC header (always same color)
+    ip: '#fde68a',       // Light yellow for IP header (always same color)
+    l4: '#86efac',       // Light green for UDP header (always same color)
+    payload: '#c7d2fe'   // Light purple for payload (always same color)
   };
   
   // Sample UDP packet data (reconstructed for demo)
@@ -921,23 +1093,43 @@ function renderPacketVisualization(skb) {
     // Determine section and set fill color
     let sectionType = '';
     let fillColor = '';
+    let isConsumed = false;
+    
     if (i < 14) {
       sectionType = 'mac';
       fillColor = colors.mac;
+      isConsumed = macConsumed;
     } else if (i < 34) {
       sectionType = 'ip'; 
       fillColor = colors.ip;
+      isConsumed = ipConsumed;
     } else if (i < 42) {
       sectionType = 'l4';
       fillColor = colors.l4;
+      isConsumed = udpConsumed;
     } else {
       sectionType = 'payload';
       fillColor = colors.payload;
+      isConsumed = false; // Payload is never consumed
     }
     
     rect.setAttribute('fill', fillColor);
-    rect.setAttribute('class', `packet-byte ${sectionType}`);
+    rect.setAttribute('class', `packet-byte ${sectionType}${isConsumed ? ' consumed' : ''}`);
     svg.appendChild(rect);
+    
+    // Add strikethrough for consumed headers  
+    if (isConsumed) {
+      // Add diagonal strikethrough line
+      const strike = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      strike.setAttribute('x1', col * boxWidth + 2);
+      strike.setAttribute('y1', 10 + row * rowHeight + 2);
+      strike.setAttribute('x2', col * boxWidth + boxWidth - 2);
+      strike.setAttribute('y2', 10 + row * rowHeight + boxHeight - 2);
+      strike.setAttribute('stroke', '#dc2626'); // Red strikethrough
+      strike.setAttribute('stroke-width', '2');
+      strike.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(strike);
+    }
     
     // Add byte value text with larger, more readable font
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
