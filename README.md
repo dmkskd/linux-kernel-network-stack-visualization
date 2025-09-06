@@ -4,6 +4,8 @@ An interactive educational tool that visualizes UDP packet processing through th
 
 [Click to see it in action](https://dmkskd.github.io/linux-kernel-network-stack-visualization/)
 
+![Github Page](linux-kernel-network-stack-visualization.png)
+
 ## 🎯 Purpose
 
 This visualization helps developers and students understand:
