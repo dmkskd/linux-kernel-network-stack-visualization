@@ -2,6 +2,8 @@
 
 An interactive educational tool that visualizes UDP packet processing through the Linux kernel network stack. This project captures real kernel function traces using ftrace and presents them as an interactive step-by-step visualization with source code highlighting.
 
+[Click to see it in action](https://dmkskd.github.io/linux-kernel-network-stack-visualization/)
+
 ## 🎯 Purpose
 
 This visualization helps developers and students understand:
